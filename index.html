@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="kn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Prakash - CCE Marks Entry</title>
+
+<style>
+*{
+  box-sizing:border-box;
+}
+
+body{
+  margin:0;
+  font-family:Arial,"Noto Sans Kannada",sans-serif;
+  background:#f3f6fa;
+  color:#222;
+}
+
+.header{
+  background:#1565c0;
+  color:white;
+  padding:18px 12px;
+  text-align:center;
+}
+
+.header h1{
+  margin:0;
+  font-size:25px;
+}
+
+.header p{
+  margin:6px 0 0;
+  font-size:14px;
+}
+
+.container{
+  max-width:1100px;
+  margin:auto;
+  padding:12px;
+}
+
+.card{
+  background:white;
+  padding:15px;
+  margin-bottom:15px;
+  border-radius:12px;
+  box-shadow:0 2px 8px #00000018;
+}
+
+h2{
+  margin-top:0;
+  color:#1565c0;
+  font-size:20px;
+}
+
+.form-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+  gap:10px;
+}
+
+label{
+  font-weight:bold;
+  display:block;
+  margin-bottom:5px;
+}
+
+input,select{
+  width:100%;
+  padding:11px;
+  border:1px solid #bbb;
+  border-radius:7px;
+  font-size:16px;
+}
+
+button{
+  border:0;
+  border-radius:7px;
+  padding:11px 15px;
+  font-size:15px;
+  cursor:pointer;
+  margin:4px;
+}
+
+.btn-primary{
+  background:#1565c0;
+  color:white;
+}
+
+.btn-success{
+  background:#198754;
+  color:white;
+}
+
+.btn-warning{
+  background:#f39c12;
+  color:white;
+}
+
+.btn-danger{
+  background:#d32f2f;
+  color:white;
+}
+
+.btn-gray{
+  background:#555;
+  color:white;
+}
+
+.button-row{
+  margin-top:12px;
+  text-align:center;
+}
+
+.table-wrap{
+  overflow-x:auto;
+}
+
+table{
+  width:100%;
+  border-collapse:collapse;
+  min-width:850px;
+}
+
+th,td{
+  border:1px solid #ccc;
+  padding:8px;
+  text-align:center;
+}
+
+th{
+  background:#1565c0;
+  color:white;
+}
+
+td input{
+  min-width:70px;
+  padding:7px;
+  text-align:center;
+}
+
+.total{
+  font-weight:bold;
+  color:#1565c0;
+}
+
+.info{
+  background:#e3f2fd;
+  padding:10px;
+  border-radius:7px;
+  margin-top:10px;
+}
+
+.message{
+  display:none;
+  padding:10px;
+  margin-top:10px;
+  border-radius:7px;
+  background:#dff0d8;
+  color:#155724;
+  font-weight:bold;
+}
+
+.footer{
+  text-align:center;
+  padding:20px;
+  color:#666;
+  font-size:13px;
+}
+
+@media(max-width:600px){
+  .header h1{
+    font-size:21px;
+  }
+
+  .container{
+    padding:8px;
+  }
+
+  .card{
+    padding:10px;
+  }
+}
+</style>
+</head>
+
+<body>
+
+<div class="header">
+  <h1>📘 Prakash - CCE / FA / SA Marks Entry</h1>
+  <p>ವಿದ್ಯಾರ್ಥಿಗಳ ಅಂಕ ನಮೂದಿಸುವ ಸರಳ ವ್ಯವಸ್ಥೆ</p>
+</div>
+
+<div class="container">
+
+<!-- SETTINGS -->
+<div class="card">
+
+<h2>⚙️ ಅಂಕಗಳ ಸೆಟ್ಟಿಂಗ್</h2>
+
+<div class="form-grid">
+
+<div>
+<label>FA ಗರಿಷ್ಠ ಅಂಕ</label>
+<select id="faMax">
+<option value="10">10</option>
+<option value="15" selected>15</option>
+</select>
+</div>
+
+<div>
+<label>SA ಗರಿಷ್ಠ ಅಂಕ</label>
+<select id="saMax">
+<option value="20" selected>20</option>
+<option value="25">25</option>
+<option value="30">30</option>
+<option value="40">40</option>
+<option value="50">50</option>
+</select>
+</div>
+
+<div>
+<label>Conversion</label>
+<select id="conversion">
+<option value="20" selected>50 → 20</option>
+<option value="10">50 → 10</option>
+<option value="15">50 → 15</option>
+<option value="20direct">No Conversion</option>
+</select>
+</div>
+
+</div>
+
+<div class="info">
+<b>Conversion ನಿಯಮ:</b>
+50 ಅಂಕಗಳನ್ನು ಆಯ್ಕೆ ಮಾಡಿದ ಗರಿಷ್ಠ ಅಂಕಕ್ಕೆ ಪರಿವರ್ತಿಸಲಾಗುತ್ತದೆ.
+ದಶಮಾಂಶ ಬಂದರೆ ಮುಂದಿನ ಪೂರ್ಣ ಸಂಖ್ಯೆಗೆ Round ಮಾಡಲಾಗುತ್ತದೆ.
+</div>
+
+</div>
+
+
+<!-- STUDENT FORM -->
+<div class="card">
+
+<h2>👨‍🎓 ವಿದ್ಯಾರ್ಥಿ ಸೇರಿಸಿ</h2>
+
+<div class="form-grid">
+
+<div>
+<label>ಕ್ರಮ ಸಂಖ್ಯೆ</label>
+<input type="number" id="rollNo" placeholder="ಉದಾ: 1">
+</div>
+
+<div>
+<label>ವಿದ್ಯಾರ್ಥಿಯ ಹೆಸರು</label>
+<input type="text" id="studentName" placeholder="ಹೆಸರು">
+</div>
+
+<div>
+<label>FA ಅಂಕ</label>
+<input type="number" id="faMarks" min="0" placeholder="FA ಅಂಕ">
+</div>
+
+<div>
+<label>SA ಅಂಕ (50ರಲ್ಲಿ)</label>
+<input type="number" id="saMarks" min="0" max="50" placeholder="SA ಅಂಕ">
+</div>
+
+</div>
+
+<div class="button-row">
+
+<button class="btn-primary" onclick="addStudent()">
+➕ ವಿದ್ಯಾರ್ಥಿ ಸೇರಿಸಿ
+</button>
+
+<button class="btn-warning" onclick="clearForm()">
+🧹 Clear
+</button>
+
+</div>
+
+</div>
+
+
+<!-- STUDENT TABLE -->
+<div class="card">
+
+<h2>📋 ವಿದ್ಯಾರ್ಥಿಗಳ ಅಂಕಪಟ್ಟಿ</h2>
+
+<div class="table-wrap">
+
+<table>
+
+<thead>
+
+<tr>
+<th>ಕ್ರ.ಸಂ</th>
+<th>ವಿದ್ಯಾರ್ಥಿಯ ಹೆಸರು</th>
+<th>FA ಅಂಕ</th>
+<th>SA ಮೂಲ ಅಂಕ</th>
+<th>SA ಪರಿವರ್ತಿತ</th>
+<th>Total</th>
+<th>ಶೇಕಡಾ</th>
+<th>Action</th>
+</tr>
+
+</thead>
+
+<tbody id="studentTable">
+</tbody>
+
+</table>
+
+</div>
+
+<div class="button-row">
+
+<button class="btn-success" onclick="saveData()">
+💾 Save Data
+</button>
+
+<button class="btn-primary" onclick="downloadCSV()">
+⬇️ Excel / CSV
+</button>
+
+<button class="btn-danger" onclick="deleteAll()">
+🗑️ ಎಲ್ಲವನ್ನೂ ಅಳಿಸಿ
+</button>
+
+</div>
+
+<div id="message" class="message">
+✅ Data Saved Successfully
+</div>
+
+</div>
+
+</div>
+
+
+<div class="footer">
+Prakash CCE Marks Entry | Teacher Friendly
+</div>
+
+
+<script>
+
+let students = [];
+
+
+// LOAD DATA
+window.onload = function(){
+
+  const saved = localStorage.getItem("prakashCCEData");
+
+  if(saved){
+
+    try{
+      students = JSON.parse(saved);
+      renderTable();
+    }
+
+    catch(e){
+      students = [];
+    }
+
+  }
+
+};
+
+
+// ROUND FUNCTION
+function roundNumber(value){
+
+  return Math.ceil(value);
+
+}
+
+
+// CONVERSION
+function convertMarks(marks){
+
+  marks = Number(marks) || 0;
+
+  const conversion =
+    document.getElementById("conversion").value;
+
+  if(conversion === "20direct"){
+
+    return roundNumber(marks);
+
+  }
+
+  const target = Number(conversion);
+
+  return roundNumber((marks / 50) * target);
+
+}
+
+
+// ADD STUDENT
+function addStudent(){
+
+  const rollNo =
+    document.getElementById("rollNo").value.trim();
+
+  const name =
+    document.getElementById("studentName").value.trim();
+
+  const fa =
+    Number(document.getElementById("faMarks").value);
+
+  const sa =
+    Number(document.getElementById("saMarks").value);
+
+  const faMax =
+    Number(document.getElementById("faMax").value);
+
+  if(!rollNo || !name){
+
+    alert("ದಯವಿಟ್ಟು ಕ್ರಮ ಸಂಖ್ಯೆ ಮತ್ತು ವಿದ್ಯಾರ್ಥಿಯ ಹೆಸರನ್ನು ನಮೂದಿಸಿ.");
+
+    return;
+
+  }
+
+  if(isNaN(fa) || fa < 0 || fa > faMax){
+
+    alert("FA ಅಂಕ ಸರಿಯಾಗಿ ನಮೂದಿಸಿ.");
+
+    return;
+
+  }
+
+  if(isNaN(sa) || sa < 0 || sa > 50){
+
+    alert("SA ಅಂಕ 0 ರಿಂದ 50ರೊಳಗೆ ಇರಬೇಕು.");
+
+    return;
+
+  }
+
+
+  const convertedSA = convertMarks(sa);
+
+  students.push({
+
+    rollNo:rollNo,
+
+    name:name,
+
+    fa:fa,
+
+    sa:sa,
+
+    convertedSA:convertedSA
+
+  });
+
+
+  renderTable();
+
+  clearForm();
+
+}
+
+
+// RENDER TABLE
+function renderTable(){
+
+  const table =
+    document.getElementById("studentTable");
+
+  table.innerHTML = "";
+
+  const faMax =
+    Number(document.getElementById("faMax").value);
+
+  const conversion =
+    document.getElementById("conversion").value;
+
+  let saMax;
+
+  if(conversion === "20direct"){
+
+    saMax =
+      Number(document.getElementById("saMax").value);
+
+  }else{
+
+    saMax =
+      Number(conversion);
+
+  }
+
+
+  students.forEach((student,index)=>{
+
+    const total =
+      Number(student.fa) +
+      Number(student.convertedSA);
+
+    const totalMax =
+      faMax + saMax;
+
+    const percentage =
+      totalMax > 0
+      ? Math.round((total / totalMax) * 100)
+      : 0;
+
+
+    const row =
+      document.createElement("tr");
+
+
+    row.innerHTML = `
+
+      <td>${student.rollNo}</td>
+
+      <td>
+        <input
+          type="text"
+          value="${escapeHTML(student.name)}"
+          onchange="editName(${index},this.value)"
+        >
+      </td>
+
+      <td>
+        <input
+          type="number"
+          value="${student.fa}"
+          min="0"
+          max="${faMax}"
+          onchange="editFA(${index},this.value)"
+        >
+      </td>
+
+      <td>
+        <input
+          type="number"
+          value="${student.sa}"
+          min="0"
+          max="50"
+          onchange="editSA(${index},this.value)"
+        >
+      </td>
+
+      <td class="total">
+        ${student.convertedSA}
+      </td>
+
+      <td class="total">
+        ${total}
+      </td>
+
+      <td>
+        ${percentage}%
+      </td>
+
+      <td>
+        <button
+          class="btn-danger"
+          onclick="deleteStudent(${index})">
+          Delete
+        </button>
+      </td>
+
+    `;
+
+    table.appendChild(row);
+
+  });
+
+}
+
+
+// EDIT NAME
+function editName(index,value){
+
+  students[index].name = value;
+
+}
+
+
+// EDIT FA
+function editFA(index,value){
+
+  const faMax =
+    Number(document.getElementById("faMax").value);
+
+  let mark = Number(value) || 0;
+
+  if(mark > faMax)
+    mark = faMax;
+
+  if(mark < 0)
+    mark = 0;
+
+  students[index].fa = mark;
+
+  renderTable();
+
+}
+
+
+// EDIT SA
+function editSA(index,value){
+
+  let mark = Number(value) || 0;
+
+  if(mark > 50)
+    mark = 50;
+
+  if(mark < 0)
+    mark = 0;
+
+  students[index].sa = mark;
+
+  students[index].convertedSA =
+    convertMarks(mark);
+
+  renderTable();
+
+}
+
+
+// DELETE STUDENT
+function deleteStudent(index){
+
+  if(confirm("ಈ ವಿದ್ಯಾರ್ಥಿಯನ್ನು ಅಳಿಸಬೇಕೇ?")){
+
+    students.splice(index,1);
+
+    renderTable();
+
+  }
+
+}
+
+
+// CLEAR FORM
+function clearForm(){
+
+  document.getElementById("rollNo").value = "";
+
+  document.getElementById("studentName").value = "";
+
+  document.getElementById("faMarks").value = "";
+
+  document.getElementById("saMarks").value = "";
+
+}
+
+
+// SAVE DATA
+function saveData(){
+
+  localStorage.setItem(
+    "prakashCCEData",
+    JSON.stringify(students)
+  );
+
+  const message =
+    document.getElementById("message");
+
+  message.style.display = "block";
+
+  setTimeout(function(){
+
+    message.style.display = "none";
+
+  },2500);
+
+}
+
+
+// DELETE ALL
+function deleteAll(){
+
+  if(students.length === 0){
+
+    alert("ಅಳಿಸಲು ಯಾವುದೇ data ಇಲ್ಲ.");
+
+    return;
+
+  }
+
+
+  if(confirm("ಎಲ್ಲಾ ವಿದ್ಯಾರ್ಥಿಗಳ data ಅಳಿಸಬೇಕೇ?")){
+
+    students = [];
+
+    localStorage.removeItem("prakashCCEData");
+
+    renderTable();
+
+  }
+
+}
+
+
+// CSV DOWNLOAD
+function downloadCSV(){
+
+  if(students.length === 0){
+
+    alert("ಮೊದಲು ವಿದ್ಯಾರ್ಥಿಗಳ data ನಮೂದಿಸಿ.");
+
+    return;
+
+  }
+
+
+  let csv =
+    "ಕ್ರಮ ಸಂಖ್ಯೆ,ವಿದ್ಯಾರ್ಥಿಯ ಹೆಸರು,FA ಅಂಕ,SA ಮೂಲ ಅಂಕ,SA ಪರಿವರ್ತಿತ,Total,ಶೇಕಡಾ\n";
+
+
+  const faMax =
+    Number(document.getElementById("faMax").value);
+
+  const conversion =
+    document.getElementById("conversion").value;
+
+  let saMax =
+    conversion === "20direct"
+    ? Number(document.getElementById("saMax").value)
+    : Number(conversion);
+
+
+  students.forEach(student=>{
+
+    const total =
+      Number(student.fa) +
+      Number(student.convertedSA);
+
+    const totalMax =
+      faMax + saMax;
+
+    const percentage =
+      totalMax > 0
+      ? Math.round((total / totalMax) * 100)
+      : 0;
+
+
+    csv +=
+      `"${student.rollNo}",` +
+      `"${student.name}",` +
+      `"${student.fa}",` +
+      `"${student.sa}",` +
+      `"${student.convertedSA}",` +
+      `"${total}",` +
+      `"${percentage}%"\n`;
+
+  });
+
+
+  const blob =
+    new Blob(
+      ["\ufeff" + csv],
+      {type:"text/csv;charset=utf-8;"}
+    );
+
+
+  const url =
+    URL.createObjectURL(blob);
+
+
+  const link =
+    document.createElement("a");
+
+  link.href = url;
+
+  link.download =
+    "CCE_Marks_Report.csv";
+
+  link.click();
+
+  URL.revokeObjectURL(url);
+
+}
+
+
+// ESCAPE HTML
+function escapeHTML(text){
+
+  return String(text)
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;")
+    .replace(/'/g,"&#039;");
+
+}
+
+
+// SETTINGS CHANGE
+document.getElementById("faMax")
+.addEventListener("change",renderTable);
+
+document.getElementById("saMax")
+.addEventListener("change",renderTable);
+
+document.getElementById("conversion")
+.addEventListener("change",renderTable);
+
+</script>
+
+</body>
+</html>
