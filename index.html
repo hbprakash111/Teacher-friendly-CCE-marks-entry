@@ -1,0 +1,1094 @@
+<!DOCTYPE html>
+<html lang="kn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prakash CCE Marks Entry</title>
+
+<style>
+*{box-sizing:border-box}
+
+body{
+ margin:0;
+ font-family:"Noto Sans Kannada","Nirmala UI",Arial,sans-serif;
+ background:#eef3f8;
+ color:#222;
+}
+
+.container{
+ max-width:1200px;
+ margin:auto;
+ padding:14px;
+}
+
+.card{
+ background:white;
+ border-radius:18px;
+ padding:18px;
+ margin-bottom:16px;
+ box-shadow:0 5px 18px #00000012;
+}
+
+h1{
+ color:#1769b0;
+ font-size:27px;
+ margin:0;
+}
+
+h2{
+ color:#1769b0;
+ margin:5px 0 15px;
+}
+
+.small{
+ color:#666;
+ font-size:13px;
+}
+
+.grid{
+ display:grid;
+ grid-template-columns:repeat(4,1fr);
+ gap:12px;
+}
+
+label{
+ display:block;
+ font-weight:bold;
+ margin-bottom:5px;
+}
+
+input,select{
+ width:100%;
+ padding:12px;
+ border:1px solid #bbb;
+ border-radius:10px;
+ font-size:16px;
+ background:white;
+}
+
+button{
+ border:0;
+ border-radius:10px;
+ padding:12px 17px;
+ font-size:16px;
+ cursor:pointer;
+ font-weight:bold;
+}
+
+.primary{background:#1769b0;color:white}
+.green{background:#168b59;color:white}
+.orange{background:#f4a000;color:white}
+.red{background:#d93030;color:white}
+.gray{background:#e8edf2}
+
+.buttons{
+ display:flex;
+ flex-wrap:wrap;
+ gap:10px;
+ margin-top:14px;
+}
+
+.table-wrap{
+ overflow:auto;
+ border:1px solid #ddd;
+ border-radius:10px;
+}
+
+table{
+ border-collapse:collapse;
+ width:100%;
+ min-width:1250px;
+}
+
+th{
+ background:#1769b0;
+ color:white;
+ padding:11px;
+ border:1px solid #ddd;
+ white-space:nowrap;
+}
+
+td{
+ padding:6px;
+ border:1px solid #ddd;
+ text-align:center;
+}
+
+td.name{
+ text-align:left;
+ min-width:190px;
+}
+
+td input{
+ padding:8px;
+ min-width:70px;
+ text-align:center;
+}
+
+.total{
+ font-weight:bold;
+ background:#eef7ff;
+}
+
+.notice{
+ padding:10px;
+ border-radius:10px;
+ background:#fff7dd;
+ border-left:5px solid #f4a000;
+}
+
+.badge{
+ display:inline-block;
+ padding:4px 9px;
+ border-radius:20px;
+ background:#e7f1fb;
+ font-weight:bold;
+}
+
+@media(max-width:800px){
+ .grid{
+  grid-template-columns:repeat(2,1fr);
+ }
+ h1{
+  font-size:22px;
+ }
+ .card{
+  padding:12px;
+ }
+}
+
+@media(max-width:500px){
+ .grid{
+  grid-template-columns:1fr;
+ }
+ .container{
+  padding:8px;
+ }
+}
+
+@media print{
+ body{background:white}
+ .card{box-shadow:none;border:0}
+ .buttons,.notice,.small{display:none}
+ input{
+  border:0;
+  padding:3px;
+ }
+ .table-wrap{
+  overflow:visible;
+ }
+ table{
+  min-width:0;
+  font-size:10px;
+ }
+ h1{
+  font-size:18px;
+ }
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<div class="card">
+<h1>📊 Prakash CCE / FA / SA Marks Entry</h1>
+<div class="small">
+Teacher Friendly • ಅಂಕಗಳನ್ನು ನಮೂದಿಸಿ, Total ಮತ್ತು Conversion ಸ್ವಯಂಚಾಲಿತವಾಗಿ ಲೆಕ್ಕವಾಗುತ್ತದೆ.
+</div>
+</div>
+
+<div class="card">
+
+<h2>🏫 ಶಾಲೆ ಮತ್ತು ಪರೀಕ್ಷೆಯ ಮಾಹಿತಿ</h2>
+
+<div class="grid">
+
+<div>
+<label>ಶಾಲೆಯ ಹೆಸರು</label>
+<input id="school" placeholder="ಶಾಲೆಯ ಹೆಸರು">
+</div>
+
+<div>
+<label>ತರಗತಿ</label>
+<select id="classNo" onchange="classChanged()">
+<option value="1">1ನೇ ತರಗತಿ</option>
+<option value="2">2ನೇ ತರಗತಿ</option>
+<option value="3">3ನೇ ತರಗತಿ</option>
+<option value="4">4ನೇ ತರಗತಿ</option>
+<option value="5">5ನೇ ತರಗತಿ</option>
+<option value="6">6ನೇ ತರಗತಿ</option>
+<option value="7">7ನೇ ತರಗತಿ</option>
+<option value="8">8ನೇ ತರಗತಿ</option>
+</select>
+</div>
+
+<div>
+<label>ವಿಷಯ</label>
+<input id="subject" placeholder="ಉದಾ: ಕನ್ನಡ">
+</div>
+
+<div>
+<label>ವರ್ಷ</label>
+<input id="year" value="2026-27">
+</div>
+
+</div>
+</div>
+
+
+<div class="card">
+
+<h2>⚙️ ಅಂಕ ಪರಿವರ್ತನೆ</h2>
+
+<div class="grid">
+
+<div>
+<label>FA ಮೂಲ ಅಂಕ</label>
+<input id="faMax" type="number" value="50">
+</div>
+
+<div>
+<label>FA ಪರಿವರ್ತಿತ ಅಂಕ</label>
+<input id="faConv" type="number" value="15">
+</div>
+
+<div>
+<label>SA ಮೂಲ ಅಂಕ</label>
+<input id="saMax" type="number" value="50">
+</div>
+
+<div>
+<label>SA ಪರಿವರ್ತಿತ ಅಂಕ</label>
+<input id="saConv" type="number" value="30">
+</div>
+
+</div>
+
+<p class="notice">
+1–5ನೇ ತರಗತಿ: FA 50 → 15  
+<br>
+6–8ನೇ ತರಗತಿ: FA 50 → 10  
+<br>
+SA: 50 → 30
+</p>
+
+</div>
+
+
+<div class="card">
+
+<h2>➕ ವಿದ್ಯಾರ್ಥಿ ಸೇರಿಸಿ</h2>
+
+<div class="grid">
+
+<div>
+<label>ವಿದ್ಯಾರ್ಥಿಯ ಹೆಸರು</label>
+<input id="studentName" placeholder="ಹೆಸರು">
+</div>
+
+<div>
+<label>FA1 /50</label>
+<input id="fa1" type="number" min="0">
+</div>
+
+<div>
+<label>FA2 /50</label>
+<input id="fa2" type="number" min="0">
+</div>
+
+<div>
+<label>FA3 /50</label>
+<input id="fa3" type="number" min="0">
+</div>
+
+</div>
+
+<div class="grid" style="margin-top:12px">
+
+<div>
+<label>FA4 /50</label>
+<input id="fa4" type="number" min="0">
+</div>
+
+<div>
+<label>SA ಅಂಕ</label>
+<input id="sa" type="number" min="0">
+</div>
+
+</div>
+
+<div class="buttons">
+
+<button class="primary" onclick="addStudent()">
+➕ ವಿದ್ಯಾರ್ಥಿ ಸೇರಿಸಿ
+</button>
+
+<button class="orange" onclick="clearForm()">
+🧹 Clear
+</button>
+
+</div>
+
+</div>
+
+
+<div class="card">
+
+<h2>📋 ವಿದ್ಯಾರ್ಥಿಗಳ ಅಂಕಪಟ್ಟಿ</h2>
+
+<div class="table-wrap">
+
+<table>
+
+<thead>
+
+<tr>
+<th>ಕ್ರಮ</th>
+<th>ವಿದ್ಯಾರ್ಥಿಯ ಹೆಸರು</th>
+<th>FA1</th>
+<th>FA2</th>
+<th>FA3</th>
+<th>FA4</th>
+<th>FA ಸರಾಸರಿ</th>
+<th>FA Conversion</th>
+<th>SA</th>
+<th>SA Conversion</th>
+<th>Total</th>
+<th>Grade</th>
+<th>Delete</th>
+</tr>
+
+</thead>
+
+<tbody id="studentBody"></tbody>
+
+</table>
+
+</div>
+
+
+<div class="buttons">
+
+<button class="green" onclick="saveData()">
+💾 Save Data
+</button>
+
+<button class="primary" onclick="exportCSV()">
+⬇️ Excel / CSV
+</button>
+
+<button class="gray" onclick="printReport()">
+🖨️ Print / PDF
+</button>
+
+<button class="red" onclick="deleteAll()">
+🗑️ ಎಲ್ಲವನ್ನೂ ಅಳಿಸಿ
+</button>
+
+</div>
+
+</div>
+
+
+<div class="card">
+
+<h2>📌 FA Activity Breakdown</h2>
+
+<div class="grid">
+
+<div>
+<label>Homework /10</label>
+<input id="h" type="number" min="0" max="10">
+</div>
+
+<div>
+<label>Unit Test /10</label>
+<input id="u" type="number" min="0" max="10">
+</div>
+
+<div>
+<label>Thinking /10</label>
+<input id="t" type="number" min="0" max="10">
+</div>
+
+<div>
+<label>Activity Book /10</label>
+<input id="a" type="number" min="0" max="10">
+</div>
+
+</div>
+
+<div class="grid" style="margin-top:12px">
+
+<div>
+<label>Participation /10</label>
+<input id="p" type="number" min="0" max="10">
+</div>
+
+<div>
+<label>ಒಟ್ಟು FA /50</label>
+<input id="breakTotal" readonly>
+</div>
+
+</div>
+
+</div>
+
+
+<div style="text-align:center;color:#666;padding:12px">
+Prakash CCE Marks Entry | Teacher Friendly
+</div>
+
+</div>
+
+
+<script>
+
+let students =
+JSON.parse(localStorage.getItem("prakashCCEStudents") || "[]");
+
+
+function classChanged(){
+
+const c =
+Number(document.getElementById("classNo").value);
+
+document.getElementById("faConv").value =
+c <= 5 ? 15 : 10;
+
+render();
+}
+
+
+function num(id){
+
+const v =
+document.getElementById(id).value;
+
+return v === "" ? null : Number(v);
+
+}
+
+
+function clean(v){
+
+return v === null ||
+v === undefined ||
+v === "" ? "" : v;
+
+}
+
+
+function addStudent(){
+
+const name =
+document.getElementById("studentName").value.trim();
+
+if(!name){
+
+alert("ವಿದ್ಯಾರ್ಥಿಯ ಹೆಸರನ್ನು ನಮೂದಿಸಿ.");
+
+return;
+
+}
+
+const fa1 = num("fa1");
+const fa2 = num("fa2");
+const fa3 = num("fa3");
+const fa4 = num("fa4");
+const sa = num("sa");
+
+
+students.push({
+
+name:name,
+
+fa1:fa1,
+fa2:fa2,
+fa3:fa3,
+fa4:fa4,
+
+sa:sa
+
+});
+
+
+saveLocal();
+
+render();
+
+clearForm();
+
+}
+
+
+function clearForm(){
+
+[
+"studentName",
+"fa1",
+"fa2",
+"fa3",
+"fa4",
+"sa"
+].forEach(id => {
+
+document.getElementById(id).value="";
+
+});
+
+}
+
+
+function calc(s){
+
+const faMax =
+Number(document.getElementById("faMax").value) || 50;
+
+const faConv =
+Number(document.getElementById("faConv").value) || 15;
+
+const saMax =
+Number(document.getElementById("saMax").value) || 50;
+
+const saConv =
+Number(document.getElementById("saConv").value) || 30;
+
+
+const vals =
+[s.fa1,s.fa2,s.fa3,s.fa4]
+.filter(x =>
+x !== null &&
+x !== "" &&
+!isNaN(x)
+);
+
+
+const avg =
+vals.length
+?
+vals.reduce((a,b)=>a+Number(b),0)/vals.length
+:null;
+
+
+const fconv =
+avg === null
+?
+null
+:
+Math.round(avg/faMax*faConv);
+
+
+const sconv =
+s.sa === null ||
+s.sa === ""
+?
+null
+:
+Math.round(Number(s.sa)/saMax*saConv);
+
+
+const total =
+fconv === null ? sconv :
+sconv === null ? fconv :
+fconv+sconv;
+
+
+return{
+
+avg:avg,
+
+fconv:fconv,
+
+sconv:sconv,
+
+total:total,
+
+maxTotal:faConv+saConv
+
+};
+
+}
+
+
+function grade(total,max){
+
+if(total===null)
+return "";
+
+const pct =
+(total/max)*100;
+
+if(pct>=90)
+return "A+";
+
+if(pct>=75)
+return "A";
+
+if(pct>=60)
+return "B+";
+
+if(pct>=50)
+return "B";
+
+if(pct>=35)
+return "C";
+
+return "D";
+
+}
+
+
+function render(){
+
+const body =
+document.getElementById("studentBody");
+
+body.innerHTML="";
+
+
+students.forEach((s,i)=>{
+
+const c=calc(s);
+
+const tr =
+document.createElement("tr");
+
+
+tr.innerHTML=`
+
+<td>${i+1}</td>
+
+<td class="name">
+<input
+value="${escapeHTML(s.name)}"
+onchange="editName(${i},this.value)">
+</td>
+
+<td>
+<input
+type="number"
+min="0"
+max="50"
+value="${clean(s.fa1)}"
+onchange="editMark(${i},'fa1',this.value)">
+</td>
+
+<td>
+<input
+type="number"
+min="0"
+max="50"
+value="${clean(s.fa2)}"
+onchange="editMark(${i},'fa2',this.value)">
+</td>
+
+<td>
+<input
+type="number"
+min="0"
+max="50"
+value="${clean(s.fa3)}"
+onchange="editMark(${i},'fa3',this.value)">
+</td>
+
+<td>
+<input
+type="number"
+min="0"
+max="50"
+value="${clean(s.fa4)}"
+onchange="editMark(${i},'fa4',this.value)">
+</td>
+
+<td class="total">
+${c.avg===null ? "" : Math.round(c.avg)}
+</td>
+
+<td class="total">
+${c.fconv===null ? "" : c.fconv}
+</td>
+
+<td>
+<input
+type="number"
+min="0"
+max="50"
+value="${clean(s.sa)}"
+onchange="editMark(${i},'sa',this.value)">
+</td>
+
+<td class="total">
+${c.sconv===null ? "" : c.sconv}
+</td>
+
+<td class="total">
+${c.total===null ? "" : c.total+" / "+c.maxTotal}
+</td>
+
+<td>
+<span class="badge">
+${grade(c.total,c.maxTotal)}
+</span>
+</td>
+
+<td>
+<button
+class="red"
+onclick="deleteStudent(${i})">
+🗑️
+</button>
+</td>
+
+`;
+
+body.appendChild(tr);
+
+});
+
+}
+
+
+function escapeHTML(str){
+
+return String(str || "")
+.replaceAll("&","&amp;")
+.replaceAll("<","&lt;")
+.replaceAll(">","&gt;")
+.replaceAll('"',"&quot;");
+
+}
+
+
+function editName(i,value){
+
+students[i].name=value;
+
+saveLocal();
+
+}
+
+
+function editMark(i,key,value){
+
+if(value!==""){
+
+const n=Number(value);
+
+if(n<0 || n>50){
+
+alert("ಗರಿಷ್ಠ 50 ಅಂಕ ಮಾತ್ರ ನಮೂದಿಸಬಹುದು.");
+
+render();
+
+return;
+
+}
+
+}
+
+students[i][key] =
+value === "" ? null : Number(value);
+
+saveLocal();
+
+render();
+
+}
+
+
+function deleteStudent(i){
+
+if(confirm("ಈ ವಿದ್ಯಾರ್ಥಿಯನ್ನು ಅಳಿಸಬೇಕೇ?")){
+
+students.splice(i,1);
+
+saveLocal();
+
+render();
+
+}
+
+}
+
+
+function deleteAll(){
+
+if(!students.length)
+return;
+
+if(confirm("ಎಲ್ಲಾ ವಿದ್ಯಾರ್ಥಿಗಳ ಮಾಹಿತಿಯನ್ನು ಅಳಿಸಬೇಕೇ?")){
+
+students=[];
+
+saveLocal();
+
+render();
+
+}
+
+}
+
+
+function saveLocal(){
+
+const meta={
+
+school:
+document.getElementById("school").value,
+
+subject:
+document.getElementById("subject").value,
+
+year:
+document.getElementById("year").value,
+
+classNo:
+document.getElementById("classNo").value,
+
+faMax:
+document.getElementById("faMax").value,
+
+faConv:
+document.getElementById("faConv").value,
+
+saMax:
+document.getElementById("saMax").value,
+
+saConv:
+document.getElementById("saConv").value
+
+};
+
+
+localStorage.setItem(
+"prakashCCEStudents",
+JSON.stringify(students)
+);
+
+localStorage.setItem(
+"prakashCCEMeta",
+JSON.stringify(meta)
+);
+
+}
+
+
+function saveData(){
+
+saveLocal();
+
+alert("✅ ಮಾಹಿತಿ ಯಶಸ್ವಿಯಾಗಿ Save ಆಗಿದೆ.");
+
+}
+
+
+function exportCSV(){
+
+if(!students.length){
+
+alert("ಮೊದಲು ವಿದ್ಯಾರ್ಥಿಗಳನ್ನು ಸೇರಿಸಿ.");
+
+return;
+
+}
+
+
+const rows=[
+
+[
+"ಶಾಲೆ",
+document.getElementById("school").value
+],
+
+[
+"ತರಗತಿ",
+document.getElementById("classNo").value+"ನೇ ತರಗತಿ"
+],
+
+[
+"ವಿಷಯ",
+document.getElementById("subject").value
+],
+
+[
+"ವರ್ಷ",
+document.getElementById("year").value
+],
+
+[],
+
+[
+"ಕ್ರಮ",
+"ವಿದ್ಯಾರ್ಥಿಯ ಹೆಸರು",
+"FA1",
+"FA2",
+"FA3",
+"FA4",
+"FA ಸರಾಸರಿ",
+"FA Conversion",
+"SA",
+"SA Conversion",
+"Total",
+"Grade"
+]
+
+];
+
+
+students.forEach((s,i)=>{
+
+const c=calc(s);
+
+rows.push([
+
+i+1,
+
+s.name,
+
+clean(s.fa1),
+
+clean(s.fa2),
+
+clean(s.fa3),
+
+clean(s.fa4),
+
+c.avg===null
+?""
+:Math.round(c.avg),
+
+clean(c.fconv),
+
+clean(s.sa),
+
+clean(c.sconv),
+
+clean(c.total),
+
+grade(c.total,c.maxTotal)
+
+]);
+
+});
+
+
+const csv =
+"\uFEFF"+
+rows
+.map(row =>
+row
+.map(x =>
+`"${String(x??"").replaceAll('"','""')}"`
+)
+.join(",")
+)
+.join("\n");
+
+
+const blob =
+new Blob(
+[csv],
+{type:"text/csv;charset=utf-8"}
+);
+
+
+const a =
+document.createElement("a");
+
+a.href =
+URL.createObjectURL(blob);
+
+a.download =
+"Prakash_CCE_Marks.csv";
+
+a.click();
+
+}
+
+
+function printReport(){
+
+saveLocal();
+
+window.print();
+
+}
+
+
+[
+"school",
+"subject",
+"year",
+"classNo",
+"faMax",
+"faConv",
+"saMax",
+"saConv"
+].forEach(id=>{
+
+document
+.getElementById(id)
+.addEventListener("input",saveLocal);
+
+});
+
+
+[
+"h",
+"u",
+"t",
+"a",
+"p"
+].forEach(id=>{
+
+document
+.getElementById(id)
+.addEventListener("input",()=>{
+
+const values =
+["h","u","t","a","p"]
+.map(num);
+
+if(values.some(x=>x!==null)){
+
+document.getElementById("breakTotal").value =
+values.reduce(
+(sum,x)=>sum+(x||0),
+0
+);
+
+}else{
+
+document.getElementById("breakTotal").value="";
+
+}
+
+});
+
+});
+
+
+const savedMeta =
+JSON.parse(
+localStorage.getItem("prakashCCEMeta") || "{}"
+);
+
+
+Object.keys(savedMeta).forEach(id=>{
+
+if(document.getElementById(id))
+document.getElementById(id).value =
+savedMeta[id];
+
+});
+
+
+render();
+
+</script>
+
+</body>
+</html>
