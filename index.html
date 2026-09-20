@@ -401,7 +401,23 @@ function deleteStudent(id){
   Object.keys(data.assessments).forEach(a=>delete data.assessments[a][id]);
   saveDB();renderStudents();renderMarksEntry();updateReport();
 }
-function renderStudents(){
+function editStudent(id){
+  const data=ensureClass();
+  const s=data.students.find(x=>x.id===id);
+  if(!s)return;
+
+  const name=prompt("ವಿದ್ಯಾರ್ಥಿಯ ಹೆಸರನ್ನು ಬದಲಾಯಿಸಿ",s.name||"");
+  if(name===null)return;
+
+  const n=name.trim();
+  if(!n)return;
+
+  s.name=n;
+  saveDB();
+  renderStudents();
+  renderMarksEntry();
+  updateReport();
+} function renderStudents(){
   const body=document.getElementById("studentBody");body.innerHTML="";
   const c=getClass();
   if(!c){body.innerHTML='<tr><td colspan="3">ಮೊದಲು ತರಗತಿಯನ್ನು ಆಯ್ಕೆ ಮಾಡಿ.</td></tr>';return;}
@@ -410,7 +426,10 @@ function renderStudents(){
     body.innerHTML+=`<tr>
       <td>${i+1}</td>
       <td><input value="${escapeHTML(s.name)}" placeholder="ವಿದ್ಯಾರ್ಥಿಯ ಹೆಸರು" onchange="updateStudentName('${s.id}',this.value)"></td>
-      <td class="no-print"><button class="danger" onclick="deleteStudent('${s.id}')">Delete</button></td>
+      <td class="no-print">
+<button class="success" onclick="editStudent('${s.id}')">Edit</button>
+<button class="danger" onclick="deleteStudent('${s.id}')">Delete</button>
+</td>
     </tr>`;
   });
   dashStudents.textContent=data.students.length;
