@@ -68,7 +68,18 @@ footer{text-align:center;padding:18px;color:#667085;font-size:12px}
  .table-wrap{overflow:visible}
 }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>supabase-js@2
+<script>
+  const SUPABASE_URL = "https://ksbqlqheunwqdybeetjg.supabase.co";
+  const SUPABASE_KEY = "ನಿಮ್ಮ_Publishable_Key_ಇಲ್ಲಿ";
+
+  const supabaseClient = window.supabase.createClient(
+    SUPABASE_URL,
+      SUPABASE_KEY
+      );
+      </script>
 </head>
+
 
 <body>
 
