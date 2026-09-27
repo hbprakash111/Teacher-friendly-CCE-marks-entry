@@ -1455,9 +1455,9 @@ function renderFA(
 
  FA_COMPONENTS.forEach(x=>{
 
-  html+=
-  <th>${x[1]}<br>/10</th>;
-
+  html+=`
+   <th>${x[1]}<br>/10</th>
+`;
  });
 
  html+=`
@@ -2059,12 +2059,16 @@ function renderReport(){
 
  ASSESSMENTS.forEach(a=>{
 
-  html+=
-  <td>${assessmentValue(d,st,subject,a,c)}</td>;
+  html+=`
+  <td>${assessmentValue(d,st,subject,a,c)}
+  </td>
+   `;
 
  });
 
- html+=</tr>;
+ html+=`
+  </tr>
+  `;
 
  });
 
