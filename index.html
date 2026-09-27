@@ -3,718 +3,2829 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
+
 <title>Teacher Friendly CCE Marks Entry</title>
 
-<!-- Excel Import / Export -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<!-- PDF -->
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
-<style>*{box-sizing:border-box}
-body{margin:0;font-family:"Noto Sans Kannada","Nirmala UI",Arial,sans-serif;background:#f3f6fb;color:#172033}
-header{background:linear-gradient(135deg,#21121d,#4b1425);color:#fff;padding:14px 18px;box-shadow:0 2px 10px #0003}
-.topbar{display:flex;align-items:center;justify-content:space-between;gap:15px;flex-wrap:wrap}
-.brand{display:flex;align-items:center;gap:12px}
-.logo{font-size:42px}.brand h1{margin:0;font-size:22px}.brand p{margin:4px 0 0;color:#eab4c5;font-size:12px}
-.school-strip{background:#f6f7f8;color:#3b3b3b;padding:7px 18px;font-size:13px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
-.nav{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}
-.nav button{background:#2b1b24;color:#fff;border:1px solid #b97a8e;border-radius:10px;padding:9px 12px;cursor:pointer}
-.nav button.active,.nav button:hover{background:#f06432;border-color:#f06432}
-.container{max-width:1500px;margin:auto;padding:14px}
-.card{background:#fff;border-radius:10px;padding:15px;margin-bottom:14px;box-shadow:0 2px 10px #0001}
-.card h2{margin:0 0 12px;color:#174ea6;font-size:18px;border-bottom:1px solid #ddd;padding-bottom:8px}
-.blue-title{background:linear-gradient(90deg,#1557d5,#287df0);color:#fff;margin:-15px -15px 15px;padding:10px 14px;border-radius:10px 10px 0 0}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
-label{font-weight:600;font-size:13px}
-input,select{width:100%;padding:9px;border:1px solid #c8d1df;border-radius:7px;margin-top:5px;background:#fff}
-button{font:inherit;font-weight:600;border:0;border-radius:7px;padding:9px 13px;cursor:pointer;margin:3px}
-.primary{background:#1769d2;color:#fff}.success{background:#14834a;color:#fff}.warning{background:#e49a00;color:#fff}.danger{background:#d73535;color:#fff}.dark{background:#273448;color:#fff}.light{background:#e8eef7;color:#17345f}
-.toolbar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
-.status{padding:9px;background:#eaf5ff;color:#155da5;border-radius:7px;margin:8px 0}
-.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:12px}
-.stat{background:#eef5ff;border-radius:9px;padding:12px;text-align:center}.stat b{display:block;font-size:22px;color:#1769d2}
-.table-wrap{overflow:auto;border:1px solid #d7dde7;border-radius:8px}
-table{border-collapse:collapse;width:100%;min-width:900px}
-th,td{border:1px solid #cbd3df;padding:7px;text-align:center}
-th{background:#e8f0fc;color:#153f78;position:sticky;top:0;z-index:2}
-td.name{text-align:left;font-weight:600}
-.mini{width:70px;padding:6px;text-align:center;margin:0}
-.marks-table{min-width:1350px}
-.marks-table th{background:#1769d2;color:#fff;border-color:#fff;font-size:12px;vertical-align:middle}
-.mark-input{width:62px;padding:6px;text-align:center;margin:0}
-.total-cell{font-weight:bold;color:#174ea6;background:#eef5ff}
-.converted-cell{font-weight:bold;color:#00804b;background:#edfff5}
-.grade-cell{font-weight:bold;background:#fff7df}
-.page{display:none}.page.active{display:block}
-.hidden{display:none!important}
-.small{font-size:12px;color:#667085}
-footer{text-align:center;padding:18px;color:#667085;font-size:12px}
-.toast{position:fixed;right:20px;bottom:20px;background:#14834a;color:#fff;padding:12px 18px;border-radius:8px;z-index:9999;box-shadow:0 3px 12px #0004}
-.report-head{text-align:center;margin-bottom:12px}
-.report-head h2{margin:0;color:#174ea6}.report-head p{margin:3px}
-.danger-zone{border:1px solid #e99b9b;background:#fff5f5;padding:12px;border-radius:8px}
-@media(max-width:700px){
- .brand h1{font-size:17px}.logo{font-size:32px}.container{padding:8px}.card{padding:10px}
- .blue-title{margin:-10px -10px 12px}.marks-table{min-width:1350px}
+
+<style>
+*{box-sizing:border-box}
+
+body{
+ margin:0;
+ font-family:Arial,"Noto Sans Kannada",sans-serif;
+ background:#f3f6fb;
+ color:#172033
 }
+
+header{
+ background:#174a8b;
+ color:white;
+ padding:15px;
+ text-align:center;
+}
+
+header h1{
+ margin:0;
+ font-size:22px;
+}
+
+header div{
+ margin-top:5px;
+ font-size:14px;
+}
+
+nav{
+ display:flex;
+ flex-wrap:wrap;
+ gap:6px;
+ padding:10px;
+ background:white;
+ border-bottom:1px solid #ddd;
+ position:sticky;
+ top:0;
+ z-index:10;
+}
+
+nav button{
+ padding:10px 13px;
+ border:0;
+ border-radius:7px;
+ background:#e8eef7;
+ cursor:pointer;
+ font-weight:bold;
+}
+
+nav button.active{
+ background:#174a8b;
+ color:white;
+}
+
+main{
+ max-width:1500px;
+ margin:auto;
+ padding:15px;
+}
+
+.card{
+ background:white;
+ padding:15px;
+ margin-bottom:15px;
+ border-radius:10px;
+ box-shadow:0 2px 8px #0001;
+}
+
+.grid{
+ display:grid;
+ grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+ gap:10px;
+}
+
+.field label{
+ display:block;
+ font-weight:bold;
+ font-size:13px;
+ margin-bottom:5px;
+}
+
+.field input,
+.field select{
+ width:100%;
+ padding:9px;
+ border:1px solid #bbb;
+ border-radius:6px;
+}
+
+button{
+ cursor:pointer;
+}
+
+.btn{
+ padding:9px 13px;
+ border:0;
+ border-radius:6px;
+ font-weight:bold;
+ margin:3px;
+}
+
+.primary{background:#174a8b;color:white}
+.success{background:#198754;color:white}
+.warning{background:#e0a800;color:#111}
+.danger{background:#c62828;color:white}
+
+.toolbar{
+ display:flex;
+ flex-wrap:wrap;
+ gap:5px;
+ margin:12px 0;
+}
+
+.notice{
+ background:#eef5ff;
+ border-left:4px solid #174a8b;
+ padding:10px;
+ margin:10px 0;
+}
+
+.table-wrap{
+ overflow:auto;
+ border:1px solid #ddd;
+}
+
+table{
+ border-collapse:collapse;
+ width:100%;
+ min-width:900px;
+}
+
+th,td{
+ border:1px solid #ccc;
+ padding:7px;
+ text-align:center;
+ white-space:nowrap;
+}
+
+th{
+ background:#e9eef6;
+}
+
+.name{
+ text-align:left;
+ min-width:190px;
+}
+
+.mark{
+ width:70px;
+ padding:5px;
+ text-align:center;
+}
+
+.badge{
+ padding:4px 8px;
+ border-radius:15px;
+ font-size:12px;
+}
+
+.activeBadge{
+ background:#dff5e5;
+ color:#176b35;
+}
+
+.transferBadge{
+ background:#ffe1e1;
+ color:#a00;
+}
+
+.hidden{
+ display:none!important;
+}
+
+.stat{
+ font-size:25px;
+ font-weight:bold;
+}
+
+.statbox{
+ padding:15px;
+ border:1px solid #ddd;
+ border-radius:8px;
+ background:#f8fafc;
+}
+
+@media(max-width:700px){
+ header h1{font-size:17px}
+ main{padding:8px}
+ .card{padding:10px}
+ table{min-width:950px}
+}
+
 @media print{
- body{background:#fff}
- header,.school-strip,.nav,.no-print,#schoolCard,#studentPage,#settingsPage{display:none!important}
- .container{padding:0;max-width:none}.card{box-shadow:none;border:0}
- .page{display:none!important}.page.active{display:block!important}
- th{position:static}
- .table-wrap{overflow:visible}
+ nav,header,.no-print{display:none!important}
+ body{background:white}
+ .card{box-shadow:none}
 }
 </style>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>
-  const SUPABASE_URL = "https://ksbqlqheunwqdybeetjg.supabase.co";
-  const SUPABASE_KEY = "sb_publishable_okeyyRTgyfc-Hx9c1frZsA_uK30BsOm";
-
-  const supabaseClient = window.supabase.createClient(
-    SUPABASE_URL,
-      SUPABASE_KEY
-      );
-      </script>
 </head>
-
 
 <body>
 
 <header>
-  <div class="topbar">
-    <div class="brand">
-      <div class="logo">🎓</div>
-      <div>
-        <h1>ಕರ್ನಾಟಕ ಶಾಲಾ CCE ಮೌಲ್ಯಮಾಪನ ವ್ಯವಸ್ಥೆ</h1>
-        <p>Teacher Friendly CCE / FA / SA Marks Entry & Consolidated Report</p>
-      </div>
-    </div>
-    <div class="nav no-print">
-      <button id="navDashboard" onclick="showPage('dashboardPage')">📊 Dashboard</button>
-      <button id="navStudents" onclick="showPage('studentPage')">👨‍🎓 Students</button>
-      <button id="navMarks" onclick="showPage('marksPage')">📝 Marks Entry</button>
-      <button id="navReport" onclick="showPage('reportPage')">📄 Reports & Print</button>
-      <button id="navSettings" onclick="showPage('settingsPage')">⚙️ Settings</button>
-    </div>
-  </div>
+<h1 id="schoolTitle">Teacher Friendly CCE Marks Entry</h1>
+<div id="schoolInfo">ಶಾಲೆಯ ಮಾಹಿತಿಯನ್ನು Settingsನಲ್ಲಿ ನಮೂದಿಸಿ</div>
 </header>
 
-<div class="school-strip">
-  <span>🏫 School Name: <b id="topSchoolName">School Name</b></span>
-  <span>DISE / UDISE: <b id="topUdise">-</b></span>
-  <span>Academic Year: <b id="topYear">2026-27</b></span>
-</div>
+<nav>
+<button onclick="showPage('dashboard')" id="nav-dashboard">🏠 Dashboard</button>
+<button onclick="showPage('students')" id="nav-students">👨‍🎓 Student Database</button>
+<button onclick="showPage('marks')" id="nav-marks">📝 Marks Entry</button>
+<button onclick="showPage('report')" id="nav-report">📊 Consolidated Report</button>
+<button onclick="showPage('tc')" id="nav-tc">📄 Transfer / TC</button>
+<button onclick="showPage('settings')" id="nav-settings">⚙️ Settings</button>
+</nav>
 
-<div class="container">
-
-<!-- SCHOOL -->
-<section class="card no-print" id="schoolCard">
-  <div class="blue-title">🏫 ಶಾಲೆಯ ಮಾಹಿತಿ / School Information</div>
-  <div class="grid">
-    <div><label>ಶಾಲೆಯ ಹೆಸರು / School Name</label><input id="schoolName" placeholder="ಶಾಲೆಯ ಹೆಸರನ್ನು ನಮೂದಿಸಿ"></div>
-    <div><label>DISE / UDISE Number</label><input id="udise" placeholder="DISE / UDISE Number"></div>
-    <div><label>ಶೈಕ್ಷಣಿಕ ವರ್ಷ / Academic Year</label><input id="academicYear" value="2026-27"></div>
-  </div>
-  <button class="primary" onclick="saveSchool()">💾 ಶಾಲಾ ಮಾಹಿತಿ ಉಳಿಸಿ</button>
-</section>
+<main>
 
 <!-- DASHBOARD -->
-<section id="dashboardPage" class="page active">
-  <div class="card">
-    <div class="blue-title">📊 Dashboard / ಮುಖ್ಯ ಪುಟ</div>
-    <div class="grid">
-      <div><label>ತರಗತಿ / Class</label>
-        <select id="classSelect" onchange="classChanged()">
-          <option value="">-- ತರಗತಿ ಆಯ್ಕೆ --</option>
-          <option value="1">1ನೇ ತರಗತಿ</option><option value="2">2ನೇ ತರಗತಿ</option>
-          <option value="3">3ನೇ ತರಗತಿ</option><option value="4">4ನೇ ತರಗತಿ</option>
-          <option value="5">5ನೇ ತರಗತಿ</option><option value="6">6ನೇ ತರಗತಿ</option>
-          <option value="7">7ನೇ ತರಗತಿ</option><option value="8">8ನೇ ತರಗತಿ</option>
-          <option value="9">9ನೇ ತರಗತಿ</option><option value="10">10ನೇ ತರಗತಿ</option>
-        </select>
-      </div>
-      <div><label>ವಿಭಾಗ / Section</label><select id="sectionSelect" onchange="saveClassSection()"><option>A</option><option>B</option><option>C</option><option>D</option></select></div>
-      <div><label>FA Conversion</label><input id="scaleDisplay" readonly></div>
-    </div>
-  </div>
 
-  <div class="summary">
-    <div class="stat"><b id="dashStudents">0</b>ವಿದ್ಯಾರ್ಥಿಗಳು</div>
-    <div class="stat"><b id="dashClass">-</b>ತರಗತಿ</div>
-    <div class="stat"><b id="dashFA">-</b>FA Scale</div>
-    <div class="stat"><b id="dashFACompleted">0</b>FA Entries</div>
-  </div>
+<section id="dashboard">
 
-  <div class="card">
-    <div class="blue-title">🚀 ತ್ವರಿತ ಆಯ್ಕೆಗಳು</div>
-    <div class="toolbar">
-      <button class="primary" onclick="showPage('studentPage')">👨‍🎓 Students Database</button>
-      <button class="primary" onclick="showPage('marksPage')">📝 Marks Entry</button>
-      <button class="success" onclick="showPage('reportPage')">📊 Consolidated Report</button>
-      <button class="warning" onclick="exportExcel()">📤 Export Excel</button>
-      <button class="dark" onclick="printReport()">🖨 Print</button>
-    </div>
-  </div>
+<div class="card">
+
+<h2>Dashboard</h2>
+
+<div class="grid">
+
+<div class="statbox">
+ಒಟ್ಟು ವಿದ್ಯಾರ್ಥಿಗಳು
+<div class="stat" id="totalStudents">0</div>
+</div>
+
+<div class="statbox">
+Active
+<div class="stat" id="activeStudents">0</div>
+</div>
+
+<div class="statbox">
+Transferred
+<div class="stat" id="transferredStudents">0</div>
+</div>
+
+<div class="statbox">
+Classes
+<div class="stat" id="totalClasses">0</div>
+</div>
+
+</div>
+</div>
+
+<div class="card">
+
+<h3>CCE App Features</h3>
+
+<ul>
+<li>Class 1 ರಿಂದ Class 10</li>
+<li>Section A ರಿಂದ H</li>
+<li>Subject-wise Marks</li>
+<li>FA1, FA2, SA1, FA3, FA4, SA2</li>
+<li>Class 1–5: FA 50 → 15</li>
+<li>Class 6–8: FA 50 → 10</li>
+<li>Class 9–10 Special Register</li>
+<li>Excel Student Import</li>
+<li>Excel Export</li>
+<li>Consolidated Report</li>
+<li>Print / PDF</li>
+<li>Student Transfer / TC</li>
+<li>LocalStorage data saving</li>
+<li>Supabase synchronization option</li>
+</ul>
+
+</div>
+
 </section>
 
-<!-- STUDENTS -->
-<section id="studentPage" class="page">
-  <div class="card">
-    <div class="blue-title">👨‍🎓 ವಿದ್ಯಾರ್ಥಿಗಳ ಪಟ್ಟಿ / Students Database</div>
-    <div class="grid">
-      <div><label>ತರಗತಿ</label><select id="studentClass" onchange="syncClassFrom('studentClass')">
-        <option value="">-- Select --</option>
-        <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
-        <option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option>
-      </select></div>
-      <div><label>ವಿಭಾಗ</label><select id="studentSection"><option>A</option><option>B</option><option>C</option><option>D</option></select></div>
-    </div>
-    <div class="toolbar">
-      <input type="file" id="excelFile" accept=".xlsx,.xls,.csv" onchange="importExcel(event)">
-      <button class="primary" onclick="addStudent()">➕ ವಿದ್ಯಾರ್ಥಿ ಸೇರಿಸಿ</button>
-      <button class="success" onclick="saveData()">💾 Save</button>
-      <button class="danger" onclick="clearCurrentClass()">🗑 Current Class Reset</button>
-    </div>
-    <div class="status">Excel format: ಮೊದಲ column Sl.No, ಎರಡನೇ column Student Name ಇರಬಹುದು. Name ಮಾತ್ರ ಇರುವ single-column Excel ಕೂಡ import ಮಾಡಬಹುದು.</div>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>Sl.No</th><th>Student Name</th><th class="no-print">Action</th></tr></thead>
-        <tbody id="studentBody"></tbody>
-      </table>
-    </div>
-  </div>
+
+<!-- STUDENT DATABASE -->
+
+<section id="students" class="hidden">
+
+<div class="card">
+
+<h2>Student Database</h2>
+
+<div class="grid">
+
+<div class="field">
+<label>Class</label>
+<select id="studentClass" onchange="renderStudents()"></select>
+</div>
+
+<div class="field">
+<label>Section</label>
+<select id="studentSection" onchange="renderStudents()"></select>
+</div>
+
+<div class="field">
+<label>Student Name</label>
+<input id="studentName">
+</div>
+
+<div class="field">
+<label>Admission Number</label>
+<input id="admissionNumber">
+</div>
+
+</div>
+
+<div class="toolbar no-print">
+
+<button class="btn primary" onclick="addStudent()">
++ Add Student
+</button>
+
+<button class="btn success" onclick="document.getElementById('excelFile').click()">
+📥 Import Excel
+</button>
+
+<button class="btn" onclick="exportStudents()">
+📤 Export Excel
+</button>
+
+<button class="btn warning" onclick="printArea('studentTable')">
+🖨️ Print
+</button>
+
+<input
+ type="file"
+ id="excelFile"
+ accept=".xlsx,.xls,.csv"
+ style="display:none"
+ onchange="importExcel(event)"
+>
+
+</div>
+
+<div class="notice">
+Excelನಲ್ಲಿ <b>Name / Student Name / ಹೆಸರು</b> column ಇದ್ದರೆ ಸಾಕು.
+Class ಮತ್ತು Section columns ಇದ್ದರೆ ಅವುಗಳನ್ನು ಸಹ ಬಳಸುತ್ತದೆ.
+</div>
+
+<div id="studentTable"></div>
+
+</div>
+
 </section>
 
-<!-- MARKS -->
-<section id="marksPage" class="page">
-  <div class="card">
-    <div class="blue-title">📝 FA / SA Marks Entry</div>
-    <div class="grid no-print">
-      <div><label>ತರಗತಿ / Class</label><select id="marksClass" onchange="syncClassFrom('marksClass')">
-        <option value="">-- Select --</option>
-        <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
-        <option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option>
-      </select></div>
-     <div>
-<label>ವಿಷಯ / Subject</label>
-<select id="subjectSelect" onchange="renderMarksEntry()">
-<option value="firstLanguage">ಪ್ರಥಮ ಭಾಷೆ</option>
-<option value="secondLanguage">ದ್ವಿತೀಯ ಭಾಷೆ</option>
-<option value="thirdLanguage">ತೃತೀಯ ಭಾಷೆ</option>
-<option value="mathematics">ಗಣಿತ</option>
-<option value="science">ವಿಜ್ಞಾನ</option>
-<option value="socialScience">ಸಮಾಜ ವಿಜ್ಞಾನ</option>
+
+<!-- MARKS ENTRY -->
+
+<section id="marks" class="hidden">
+
+<div class="card">
+
+<h2>Marks Entry</h2>
+
+<div class="grid">
+
+<div class="field">
+<label>Academic Year</label>
+<input id="marksYear" readonly>
+</div>
+
+<div class="field">
+<label>Class</label>
+<select id="marksClass" onchange="renderMarks()"></select>
+</div>
+
+<div class="field">
+<label>Section</label>
+<select id="marksSection" onchange="renderMarks()"></select>
+</div>
+
+<div class="field">
+<label>Subject</label>
+<select id="marksSubject" onchange="renderMarks()"></select>
+</div>
+
+<div class="field">
+<label>Assessment</label>
+<select id="assessment" onchange="renderMarks()">
+<option>FA1</option>
+<option>FA2</option>
+<option>SA1</option>
+<option>FA3</option>
+<option>FA4</option>
+<option>SA2</option>
 </select>
 </div>
- 
-      <div><label>Assessment</label><select id="marksAssessment" onchange="renderMarksEntry()">
-        <option value="FA1">FA 1</option><option value="FA2">FA 2</option><option value="SA1">SA 1</option>
-        <option value="FA3">FA 3</option><option value="FA4">FA 4</option><option value="SA2">SA 2</option>
-      </select></div>
-    </div>
 
-    <div id="marksInfo" class="status"></div>
-<div class="no-print" style="margin:10px 0;">
- <button class="primary" onclick="window.print()">
-  Marks Entry Print</button>
 </div>
-    <div id="faEntryWrap">
-      <div class="table-wrap">
-        <table class="marks-table">
-          <thead>
-            <tr>
-              <th rowspan="2">ಕ್ರ.<br>ಸಂ.</th>
-              <th rowspan="2">ವಿದ್ಯಾರ್ಥಿಯ ಹೆಸರು</th>
-              <th colspan="5">ರೂಪಣಾತ್ಮಕ ಮೌಲ್ಯಮಾಪನ / FA</th>
-              <th rowspan="2">ಒಟ್ಟು<br>/50</th>
-              <th rowspan="2">ಪರಿವರ್ತನೆ<br><span id="conversionHeader">/15</span></th>
-              <th rowspan="2">ಗ್ರೇಡ್</th>
-            </tr>
-            <tr>
-              <th>ಗೃಹ ಪಾಠ<br>/10</th>
-              <th>ಘಟಕ ಪರೀಕ್ಷೆ<br>/10</th>
-              <th>ಯೋಚನಾ ಕಾರ್ಯ<br>/10</th>
-              <th>ಚಟುವಟಿಕೆ ಪುಸ್ತಕದ<br>ಚಟುವಟಿಕೆ /10</th>
-              <th>ತರಗತಿ ಪ್ರಕ್ರಿಯೆಯಲ್ಲಿ<br>ಭಾಗವಹಿಸುವಿಕೆ /10</th>
-            </tr>
-          </thead>
-          <tbody id="faMarksBody"></tbody>
-        </table>
-      </div>
-    </div>
 
-    <div id="saEntryWrap" class="hidden">
-      <div class="status">SAಗೆ ಗರಿಷ್ಠ ಅಂಕಗಳನ್ನು ನಮೂದಿಸಿ. SAಯ Grade ಅನ್ನು ಸ್ವಯಂಚಾಲಿತವಾಗಿ ಲೆಕ್ಕಿಸಲಾಗುತ್ತದೆ.</div>
-      <div class="table-wrap">
-        <table class="marks-table">
-          <thead><tr><th>ಕ್ರ.ಸಂ.</th><th>ವಿದ್ಯಾರ್ಥಿಯ ಹೆಸರು</th><th>ಪಡೆದ ಅಂಕ</th><th>ಗರಿಷ್ಠ ಅಂಕ</th><th>Grade</th></tr></thead>
-          <tbody id="saMarksBody"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
+<div id="marksInfo" class="notice"></div>
+
+<div class="toolbar no-print">
+
+<button class="btn success" onclick="saveData()">
+💾 Save
+</button>
+
+<button class="btn" onclick="printArea('marksTable')">
+🖨️ Print
+</button>
+
+<button class="btn" onclick="exportMarks()">
+📤 Excel
+</button>
+
+</div>
+
+<div id="marksTable"></div>
+
+</div>
+
 </section>
+
 
 <!-- REPORT -->
-<section id="reportPage" class="page">
-  <div class="card">
-    <div class="report-head">
-      <h2 id="reportSchoolName">ಶಾಲೆಯ ಹೆಸರು</h2>
-      <p id="reportMeta">DISE: - | Class: - | Academic Year: 2026-27</p>
-      <p><b>ಕ್ರೂಡಿಕೃತ ನಮೂನೆ / Consolidated Report</b></p>
-    </div>
-    <div class="toolbar no-print">
-      <button class="primary" onclick="updateReport()">🔄 Update</button>
-      <button class="success" onclick="exportExcel()">📤 Export Excel</button>
-      <button class="warning" onclick="exportPDF()">📄 Export PDF</button>
-      <button class="dark" onclick="printReport()">🖨 Print</button>
-    </div>
-    <div class="table-wrap">
-      <table id="reportTable">
-        <thead><tr><th>Sl.No</th><th>ವಿದ್ಯಾರ್ಥಿಗಳ ಹೆಸರು</th><th>FA 1</th><th>FA 2</th><th>SA 1</th><th>FA 3</th><th>FA 4</th><th>SA 2</th></tr></thead>
-        <tbody id="reportBody"></tbody>
-      </table>
-    </div>
-  </div>
-</section>
 
-<!-- SETTINGS -->
-<section id="settingsPage" class="page">
-  <div class="card">
-    <div class="blue-title">⚙️ Settings / ಶಾಲಾ ಮಾಹಿತಿ</div>
-    <div class="grid">
-      <div><label>School Name</label><input id="settingsSchoolName"></div>
-      <div><label>DISE / UDISE</label><input id="settingsUdise"></div>
-      <div><label>Academic Year</label><input id="settingsYear"></div>
-    </div>
-    <button class="success" onclick="saveSettings()">💾 Save All Settings</button>
-  </div>
-  <div class="card danger-zone">
-    <h3>⚠️ Danger Zone</h3>
-    <p>ಎಲ್ಲಾ local data ಅಳಿಸಲು ಮಾತ್ರ ಈ ಆಯ್ಕೆಯನ್ನು ಬಳಸಿ.</p>
-    <button class="danger" onclick="resetAllData()">🗑 Reset All Data</button>
-  </div>
-</section>
+<section id="report" class="hidden">
+
+<div class="card">
+
+<h2>Consolidated Report</h2>
+
+<div class="grid">
+
+<div class="field">
+<label>Class</label>
+<select id="reportClass" onchange="renderReport()"></select>
+</div>
+
+<div class="field">
+<label>Section</label>
+<select id="reportSection" onchange="renderReport()"></select>
+</div>
+
+<div class="field">
+<label>Subject</label>
+<select id="reportSubject" onchange="renderReport()"></select>
+</div>
 
 </div>
 
-<footer>Teacher Friendly CCE Marks Entry – For School Assessment Management</footer>
+<div class="toolbar no-print">
+
+<button class="btn" onclick="printArea('reportTable')">
+🖨️ Print
+</button>
+
+<button class="btn" onclick="exportReportExcel()">
+📤 Excel
+</button>
+
+<button class="btn primary" onclick="exportPDF()">
+📄 PDF
+</button>
+
+</div>
+
+<div id="reportTable"></div>
+
+</div>
+
+</section>
+
+
+<!-- TC -->
+
+<section id="tc" class="hidden">
+
+<div class="card">
+
+<h2>Transfer Certificate</h2>
+
+<div class="grid">
+
+<div class="field">
+<label>Class</label>
+<select id="tcClass" onchange="renderTCStudents()"></select>
+</div>
+
+<div class="field">
+<label>Section</label>
+<select id="tcSection" onchange="renderTCStudents()"></select>
+</div>
+
+<div class="field">
+<label>Student</label>
+<select id="tcStudent" onchange="loadTC()"></select>
+</div>
+
+</div>
+
+<div class="grid">
+
+<div class="field">
+<label>TC Number</label>
+<input id="tcNumber">
+</div>
+
+<div class="field">
+<label>Leaving Date</label>
+<input id="tcDate" type="date">
+</div>
+
+<div class="field">
+<label>Reason / Remarks</label>
+<input id="tcReason">
+</div>
+
+</div>
+
+<div class="toolbar no-print">
+
+<button class="btn warning" onclick="saveTC()">
+Transfer / Save TC
+</button>
+
+<button class="btn" onclick="printTC()">
+🖨️ TC Preview / Print
+</button>
+
+</div>
+
+<div id="tcPreview"></div>
+
+</div>
+
+</section>
+
+
+<!-- SETTINGS -->
+
+<section id="settings" class="hidden">
+
+<div class="card">
+
+<h2>School Settings</h2>
+
+<div class="grid">
+
+<div class="field">
+<label>School Name</label>
+<input id="schoolName">
+</div>
+
+<div class="field">
+<label>DISE / UDISE Number</label>
+<input id="udise">
+</div>
+
+<div class="field">
+<label>Academic Year</label>
+<input id="academicYear">
+</div>
+
+</div>
+
+<div class="toolbar">
+
+<button class="btn primary" onclick="saveSettings()">
+💾 Save Settings
+</button>
+
+<button class="btn danger" onclick="resetData()">
+Reset All Data
+</button>
+
+</div>
+
+</div>
+
+
+<div class="card">
+
+<h2>Supabase Synchronization</h2>
+
+<div class="notice">
+Supabase Project URL ಮತ್ತು Publishable/Anon Key ಅನ್ನು ಇಲ್ಲಿ ಹಾಕಬಹುದು.
+</div>
+
+<div class="grid">
+
+<div class="field">
+<label>Supabase Project URL</label>
+<input id="supabaseURL"
+placeholder="https://xxxx.supabase.co">
+</div>
+
+<div class="field">
+<label>Publishable / Anon Key</label>
+<input id="supabaseKey" type="password">
+</div>
+
+</div>
+
+<div class="toolbar">
+
+<button class="btn success" onclick="saveSupabaseSettings()">
+Save Supabase
+</button>
+
+<button class="btn primary" onclick="syncSupabase()">
+☁️ Sync
+</button>
+
+</div>
+
+<div id="syncMessage"></div>
+
+</div>
+
+</section>
+
+</main>
+
 
 <script>
-/* ========================= DATA ========================= */
-let db = JSON.parse(localStorage.getItem("CCE_APP_DATA_V2") || "null");
-if(!db){
-  db={
-    school:{name:"",udise:"",academicYear:"2026-27"},
-    selectedClass:"",
-    sections:{},
-    classes:{}
-  };
-}
 
-const FA_COMPONENTS=[
-  ["homework","ಗೃಹ ಪಾಠ"],
-  ["unit","ಘಟಕ ಪರೀಕ್ಷೆ"],
-  ["thinking","ಯೋಚನಾ ಕಾರ್ಯ"],
-  ["activity","ಚಟುವಟಿಕೆ ಪುಸ್ತಕದ ಚಟುವಟಿಕೆ"],
-  ["participation","ತರಗತಿ ಪ್ರಕ್ರಿಯೆಯಲ್ಲಿ ಭಾಗವಹಿಸುವಿಕೆ"]
+/* =====================================================
+   BASIC DATA
+===================================================== */
+
+const DB_KEY="CCE_APP_DATA_V4";
+
+const SECTIONS=["A","B","C","D","E","F","G","H"];
+
+const SUBJECTS={
+ firstLanguage:"ಪ್ರಥಮ ಭಾಷೆ",
+ secondLanguage:"ದ್ವಿತೀಯ ಭಾಷೆ",
+ thirdLanguage:"ತೃತೀಯ ಭಾಷೆ",
+ mathematics:"ಗಣಿತ",
+ science:"ವಿಜ್ಞಾನ",
+ socialScience:"ಸಾಮಾಜಿಕ ವಿಜ್ಞಾನ"
+};
+
+const ASSESSMENTS=[
+ "FA1","FA2","SA1","FA3","FA4","SA2"
 ];
 
-function saveDB(){localStorage.setItem("CCE_APP_DATA_V2",JSON.stringify(db));}
-function getClass(){return document.getElementById("classSelect").value || db.selectedClass || "";}
-function getScale(){
-  const c=Number(getClass());
-  return c>=1 && c<=5 ? 15 : 10;
-}
-function ensureClass(){
-  const c=getClass();
-  if(!c)return null;
-  if(!db.classes[c]){
-    db.classes[c]={
-      section:"A",
-      students:[],
-      assessments:{FA1:{},FA2:{},SA1:{},FA3:{},FA4:{},SA2:{}}
-    };
+const FA_COMPONENTS=[
+ ["homework","ಗೃಹ ಪಾಠ"],
+ ["unitTest","ಘಟಕ ಪರೀಕ್ಷೆ"],
+ ["thinking","ಯೋಚನಾ ಕಾರ್ಯ"],
+ ["activity","ಚಟುವಟಿಕೆ ಪುಸ್ತಕದ ಚಟುವಟಿಕೆ"],
+ ["participation","ತರಗತಿ ಪ್ರಕ್ರಿಯೆಯಲ್ಲಿ ಭಾಗವಹಿಸುವಿಕೆ"]
+];
+
+let db=loadDB();
+
+
+function emptyDB(){
+
+ return {
+  school:{
+   name:"",
+   udise:"",
+   academicYear:"2026-27"
+  },
+
+  classes:{},
+
+  supabase:{
+   url:"",
+   key:""
   }
-  return db.classes[c];
- 
-}
- function getSubject(){
-  const el=document.getElementById("subjectSelect");
-  return el ? el.value : "firstLanguage";
+ };
+
 }
 
-function getSubjectName(){
-  const names={
-    firstLanguage:"ಪ್ರಥಮ ಭಾಷೆ",
-    secondLanguage:"ದ್ವಿತೀಯ ಭಾಷೆ",
-    thirdLanguage:"ತೃತೀಯ ಭಾಷೆ",
-    mathematics:"ಗಣಿತ",
-    science:"ವಿಜ್ಞಾನ",
-    socialScience:"ಸಮಾಜ ವಿಜ್ಞಾನ"
+
+function loadDB(){
+
+ try{
+
+  const data=
+  JSON.parse(localStorage.getItem(DB_KEY));
+
+  return data || emptyDB();
+
+ }catch(e){
+
+  return emptyDB();
+
+ }
+
+}
+
+
+function saveData(){
+
+ localStorage.setItem(
+  DB_KEY,
+  JSON.stringify(db)
+ );
+
+ updateHeader();
+ updateDashboard();
+
+}
+
+
+/* =====================================================
+   CLASS / SECTION
+===================================================== */
+
+function getClassSection(c,s){
+
+ if(!db.classes[c])
+  db.classes[c]={};
+
+ if(!db.classes[c][s]){
+
+  db.classes[c][s]={
+   students:[],
+   marks:{},
+   tc:{}
   };
-  return names[getSubject()] || "ಪ್ರಥಮ ಭಾಷೆ";
-}
-function escapeHTML(s){
-  return String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");
-}
-function notify(msg){
-  const old=document.querySelector(".toast"); if(old)old.remove();
-  const d=document.createElement("div");d.className="toast";d.textContent=msg;document.body.appendChild(d);
-  setTimeout(()=>d.remove(),2500);
+
+ }
+
+ return db.classes[c][s];
+
 }
 
-/* ========================= SCHOOL ========================= */
-function loadSchool(){
-  schoolName.value=db.school.name||"";
-  udise.value=db.school.udise||"";
-  academicYear.value=db.school.academicYear||"2026-27";
-  settingsSchoolName.value=db.school.name||"";
-  settingsUdise.value=db.school.udise||"";
-  settingsYear.value=db.school.academicYear||"2026-27";
-  topSchoolName.textContent=db.school.name||"School Name";
-  topUdise.textContent=db.school.udise||"-";
-  topYear.textContent=db.school.academicYear||"2026-27";
-}
-function saveSchool(){
-  db.school.name=schoolName.value.trim();
-  db.school.udise=udise.value.trim();
-  db.school.academicYear=academicYear.value.trim()||"2026-27";
-  saveDB();loadSchool();notify("ಶಾಲೆಯ ಮಾಹಿತಿ ಉಳಿಸಲಾಗಿದೆ.");
-}
-function saveSettings(){
-  db.school.name=settingsSchoolName.value.trim();
-  db.school.udise=settingsUdise.value.trim();
-  db.school.academicYear=settingsYear.value.trim()||"2026-27";
-  saveDB();loadSchool();notify("Settings ಉಳಿಸಲಾಗಿದೆ.");
+
+/* =====================================================
+   SELECT LISTS
+===================================================== */
+
+function fillSelectors(){
+
+ const classes=[];
+
+ for(let i=1;i<=10;i++)
+  classes.push(String(i));
+
+
+ [
+  "studentClass",
+  "marksClass",
+  "reportClass",
+  "tcClass"
+ ].forEach(id=>{
+
+  document.getElementById(id).innerHTML=
+  classes.map(c=>
+   <option value="${c}">${c}</option>
+  ).join("");
+
+ });
+
+
+ [
+  "studentSection",
+  "marksSection",
+  "reportSection",
+  "tcSection"
+ ].forEach(id=>{
+
+  document.getElementById(id).innerHTML=
+  SECTIONS.map(s=>
+   <option value="${s}">${s}</option>
+  ).join("");
+
+ });
+
+
+ const subjects=
+ Object.entries(SUBJECTS)
+ .map(([k,v])=>
+  <option value="${k}">${v}</option>
+ )
+ .join("");
+
+ marksSubject.innerHTML=subjects;
+ reportSubject.innerHTML=subjects;
+
+ marksYear.value=db.school.academicYear;
+
 }
 
-/* ========================= CLASS ========================= */
-function classChanged(){
-  const c=getClass();
-  db.selectedClass=c;
-  if(c){
-    const data=ensureClass();
-    sectionSelect.value=data.section||"A";
-    sectionSelect.dispatchEvent(new Event("change"));
-    studentSection.value=data.section||"A";
-    studentClass.value=c;
-    marksClass.value=c;
-  }
-  saveDB();
-  refreshAll();
-}
-function saveClassSection(){
-  const data=ensureClass();
-  if(data){data.section=sectionSelect.value;saveDB();}
-  studentSection.value=sectionSelect.value;
-}
-function syncClassFrom(source){
-  const c=document.getElementById(source).value;
-  if(!c)return;
-  classSelect.value=c;
-  db.selectedClass=c;
-  ensureClass();
-  sectionSelect.value=db.classes[c].section||"A";
-  studentClass.value=c;
-  studentSection.value=sectionSelect.value;
-  marksClass.value=c;
-  saveDB();refreshAll();
+
+/* =====================================================
+   HEADER
+===================================================== */
+
+function updateHeader(){
+
+ schoolTitle.textContent=
+ db.school.name ||
+ "Teacher Friendly CCE Marks Entry";
+
+ schoolInfo.textContent=
+ "UDISE: "+
+ (db.school.udise||"-")+
+ " | Academic Year: "+
+ (db.school.academicYear||"-");
+
 }
 
-/* ========================= STUDENTS ========================= */
-function addStudent(){
-  if(!getClass()){alert("ಮೊದಲು ತರಗತಿಯನ್ನು ಆಯ್ಕೆ ಮಾಡಿ.");return;}
-  const data=ensureClass();
-  data.students.push({id:crypto.randomUUID?crypto.randomUUID():Date.now()+"_"+Math.random(),name:""});
-  saveDB();renderStudents();renderMarksEntry();updateReport();
-}
-function updateStudentName(id,value){
-  const data=ensureClass();const s=data.students.find(x=>x.id===id);
-  if(s){s.name=value;saveDB();renderMarksEntry();updateReport();}
-}
-function deleteStudent(id){
-  const data=ensureClass();const s=data.students.find(x=>x.id===id);
-  if(!s)return;
-  if(!confirm((s.name||"ಈ ವಿದ್ಯಾರ್ಥಿ")+" ಅವರನ್ನು ಅಳಿಸಬೇಕೇ?"))return;
-  data.students=data.students.filter(x=>x.id!==id);
-  Object.keys(data.assessments).forEach(a=>delete data.assessments[a][id]);
-  saveDB();renderStudents();renderMarksEntry();updateReport();
-}
-function editStudent(id){
-  const data=ensureClass();
-  const s=data.students.find(x=>x.id===id);
-  if(!s)return;
 
-  const name=prompt("ವಿದ್ಯಾರ್ಥಿಯ ಹೆಸರನ್ನು ಬದಲಾಯಿಸಿ",s.name||"");
-  if(name===null)return;
+/* =====================================================
+   PAGE
+===================================================== */
 
-  const n=name.trim();
-  if(!n)return;
+function showPage(page){
 
-  s.name=n;
-  saveDB();
+ document.querySelectorAll("main>section")
+ .forEach(x=>x.classList.add("hidden"));
+
+ document.getElementById(page)
+ .classList.remove("hidden");
+
+ document.querySelectorAll("nav button")
+ .forEach(x=>x.classList.remove("active"));
+
+ document.getElementById("nav-"+page)
+ .classList.add("active");
+
+
+ if(page==="dashboard")
+  updateDashboard();
+
+ if(page==="students")
   renderStudents();
-  renderMarksEntry();
-  updateReport();
-} function renderStudents(){
-  const body=document.getElementById("studentBody");body.innerHTML="";
-  const c=getClass();
-  if(!c){body.innerHTML='<tr><td colspan="3">ಮೊದಲು ತರಗತಿಯನ್ನು ಆಯ್ಕೆ ಮಾಡಿ.</td></tr>';return;}
-  const data=ensureClass();
-  data.students.forEach((s,i)=>{
-    body.innerHTML+=`<tr>
-      <td>${i+1}</td>
-      <td><input value="${escapeHTML(s.name)}" placeholder="ವಿದ್ಯಾರ್ಥಿಯ ಹೆಸರು" onchange="updateStudentName('${s.id}',this.value)"></td>
-      <td class="no-print">
-<button class="success" onclick="editStudent('${s.id}')">Edit</button>
-<button class="danger" onclick="deleteStudent('${s.id}')">Delete</button>
-</td>
-    </tr>`;
-  });
-  dashStudents.textContent=data.students.length;
-  dashClass.textContent=c;
-  dashFA.textContent="/"+getScale();
-  scaleDisplay.value="50 → "+getScale();
+
+ if(page==="marks")
+  renderMarks();
+
+ if(page==="report")
+  renderReport();
+
+ if(page==="tc")
+  renderTCStudents();
+
+ if(page==="settings")
+  loadSettings();
+
 }
+
+
+/* =====================================================
+   DASHBOARD
+===================================================== */
+
+function updateDashboard(){
+
+ let total=0;
+ let active=0;
+ let transferred=0;
+ let classes=0;
+
+ for(let c=1;c<=10;c++){
+
+  let has=false;
+
+  for(const s of SECTIONS){
+
+   const d=
+   db.classes[c]?.[s];
+
+   if(!d)continue;
+
+   if(d.students.length)
+    has=true;
+
+   d.students.forEach(st=>{
+
+    total++;
+
+    if(st.status==="Transferred")
+     transferred++;
+    else
+     active++;
+
+   });
+
+  }
+
+  if(has)classes++;
+
+ }
+
+ totalStudents.textContent=total;
+ activeStudents.textContent=active;
+ transferredStudents.textContent=transferred;
+ totalClasses.textContent=classes;
+
+}
+
+
+/* =====================================================
+   STUDENTS
+===================================================== */
+
+function addStudent(){
+
+ const c=studentClass.value;
+ const s=studentSection.value;
+
+ const name=
+ studentName.value.trim();
+
+ if(!name){
+
+  alert("ವಿದ್ಯಾರ್ಥಿಯ ಹೆಸರನ್ನು ನಮೂದಿಸಿ.");
+
+  return;
+
+ }
+
+ const d=
+ getClassSection(c,s);
+
+ const duplicate=
+ d.students.find(x=>
+  x.name.toLowerCase()===
+  name.toLowerCase()
+ );
+
+ if(duplicate){
+
+  alert(
+   "ಈ Class ಮತ್ತು Sectionನಲ್ಲಿ ಇದೇ ವಿದ್ಯಾರ್ಥಿ ಇದ್ದಾರೆ."
+  );
+
+  return;
+
+ }
+
+ d.students.push({
+
+  id:
+  Date.now().toString(),
+
+  name:name,
+
+  admission:
+  admissionNumber.value.trim(),
+
+  status:"Active",
+
+  tc:{}
+
+ });
+
+ studentName.value="";
+ admissionNumber.value="";
+
+ saveData();
+
+ renderStudents();
+
+}
+
+
+function renderStudents(){
+
+ const c=studentClass.value;
+ const s=studentSection.value;
+
+ const d=
+ getClassSection(c,s);
+
+ let html=`
+
+ <div class="notice">
+ Class ${c} | Section ${s}
+ | Total Students: <b>${d.students.length}</b>
+ </div>
+
+ `;
+
+ if(!d.students.length){
+
+  studentTable.innerHTML=
+  html+
+  "<div class='notice'>ವಿದ್ಯಾರ್ಥಿಗಳಿಲ್ಲ.</div>";
+
+  return;
+
+ }
+
+
+ html+=`
+
+ <div class="table-wrap">
+
+ <table>
+
+ <thead>
+
+ <tr>
+ <th>No</th>
+ <th>Admission No</th>
+ <th>Name</th>
+ <th>Status</th>
+ <th class="no-print">Action</th>
+ </tr>
+
+ </thead>
+
+ <tbody>
+
+ `;
+
+
+ d.students.forEach((st,i)=>{
+
+ html+=`
+
+ <tr>
+
+ <td>${i+1}</td>
+
+ <td>${escapeHTML(st.admission||"")}</td>
+
+ <td class="name">
+ ${escapeHTML(st.name)}
+ </td>
+
+ <td>
+
+ <span class="badge ${
+ st.status==="Transferred"
+ ?"transferBadge"
+ :"activeBadge"
+ }">
+
+ ${st.status||"Active"}
+
+ </span>
+
+ </td>
+
+ <td class="no-print">
+
+ ${
+ st.status!=="Transferred"
+ ?
+ `<button class="btn warning"
+ onclick="openTransfer('${st.id}')">
+ Transfer
+ </button>`
+ :""
+ }
+
+ <button
+ class="btn danger"
+ onclick="deleteStudent('${st.id}')">
+ Delete
+ </button>
+
+ </td>
+
+ </tr>
+
+ `;
+
+ });
+
+
+ html+=`
+
+ </tbody>
+ </table>
+ </div>
+
+ `;
+
+ studentTable.innerHTML=html;
+
+}
+
+
+/* =====================================================
+   DELETE
+===================================================== */
+
+function deleteStudent(id){
+
+ if(!confirm(
+ "ವಿದ್ಯಾರ್ಥಿಯನ್ನು delete ಮಾಡಬೇಕೇ?"
+ ))return;
+
+ const d=
+ getClassSection(
+  studentClass.value,
+  studentSection.value
+ );
+
+ d.students=
+ d.students.filter(x=>x.id!==id);
+
+ saveData();
+
+ renderStudents();
+
+}
+
+
+/* =====================================================
+   EXCEL IMPORT
+===================================================== */
+
 function importExcel(event){
-  const file=event.target.files[0];if(!file)return;
-  if(!getClass()){alert("ಮೊದಲು ತರಗತಿಯನ್ನು ಆಯ್ಕೆ ಮಾಡಿ.");event.target.value="";return;}
-  const reader=new FileReader();
-  reader.onload=e=>{
-    try{
-      const wb=XLSX.read(e.target.result,{type:"array"});
-      const ws=wb.Sheets[wb.SheetNames[0]];
-      const rows=XLSX.utils.sheet_to_json(ws,{header:1});
-      const data=ensureClass();let names=[];
-      rows.forEach((row,i)=>{
-        if(!row||!row.length)return;
-        const text=row.join(" ").toLowerCase();
-        if(i===0 && (text.includes("student")||text.includes("name")||text.includes("ವಿದ್ಯಾರ್ಥ")))return;
-        let name=row.length>=2?String(row[1]??"").trim():String(row[0]??"").trim();
-        if(name && !/^(sl|serial|no\.?|ಸಂ)$/i.test(name))names.push(name);
-      });
-      names.forEach(name=>data.students.push({id:crypto.randomUUID?crypto.randomUUID():Date.now()+"_"+Math.random(),name}));
-      saveDB();renderStudents();renderMarksEntry();updateReport();notify(names.length+" ವಿದ್ಯಾರ್ಥಿಗಳ ಹೆಸರು Import ಆಗಿದೆ.");
-    }catch(err){console.error(err);alert("Excel file ಓದಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ.");}
-    event.target.value="";
-  };
-  reader.readAsArrayBuffer(file);
-}
-function clearCurrentClass(){
-  const c=getClass();if(!c)return;
-  if(!confirm(c+"ನೇ ತರಗತಿಯ ಎಲ್ಲಾ ವಿದ್ಯಾರ್ಥಿ ಮತ್ತು ಅಂಕಗಳನ್ನು ಅಳಿಸಬೇಕೇ?"))return;
-  delete db.classes[c];saveDB();refreshAll();notify("Current class data ತೆರವುಗೊಳಿಸಲಾಗಿದೆ.");
+
+ const file=event.target.files[0];
+
+ if(!file)return;
+
+ const reader=new FileReader();
+
+ reader.onload=function(e){
+
+  try{
+
+   const workbook=
+   XLSX.read(
+    e.target.result,
+    {type:"array"}
+   );
+
+   const sheet=
+   workbook.Sheets[
+    workbook.SheetNames[0]
+   ];
+
+   const rows=
+   XLSX.utils.sheet_to_json(
+    sheet,
+    {defval:""}
+   );
+
+   let added=0;
+   let updated=0;
+
+   rows.forEach(row=>{
+
+    const name=
+    row.Name ||
+    row["Student Name"] ||
+    row["StudentName"] ||
+    row["ಹೆಸರು"] ||
+    row["ವಿದ್ಯಾರ್ಥಿಯ ಹೆಸರು"];
+
+    if(!name)return;
+
+    let c=
+    String(
+     row.Class ||
+     row["class"] ||
+     row["ತರಗತಿ"] ||
+     studentClass.value
+    );
+
+    let s=
+    String(
+     row.Section ||
+     row["section"] ||
+     row["ವಿಭಾಗ"] ||
+     studentSection.value
+    ).toUpperCase();
+
+    if(!/^[A-H]$/.test(s))
+     s="A";
+
+    if(!/^(10|[1-9])$/.test(c))
+     c=studentClass.value;
+
+    const d=
+    getClassSection(c,s);
+
+    const existing=
+    d.students.find(x=>
+     x.name.toLowerCase()===
+     String(name).trim().toLowerCase()
+    );
+
+    if(existing){
+
+     existing.admission=
+     row["Admission No"] ||
+     row.Admission ||
+     existing.admission ||
+     "";
+
+     updated++;
+
+    }else{
+
+     d.students.push({
+
+      id:Date.now()+"_"+Math.random(),
+
+      name:String(name).trim(),
+
+      admission:
+      row["Admission No"] ||
+      row.Admission ||
+      "",
+
+      status:"Active",
+
+      tc:{}
+
+     });
+
+     added++;
+
+    }
+
+   });
+
+   saveData();
+
+   renderStudents();
+
+   alert(
+    "Excel Import ಪೂರ್ಣಗೊಂಡಿದೆ.\n"+
+    "Added: "+added+
+    "\nUpdated: "+updated
+   );
+
+  }catch(error){
+
+   alert(
+    "Excel Import Error: "+
+    error.message
+   );
+
+  }
+
+ };
+
+ reader.readAsArrayBuffer(file);
+
+ event.target.value="";
+
 }
 
-/* ========================= FA ========================= */
-function totalFA(record){
-  return FA_COMPONENTS.reduce((sum,x)=>{
-    const v=Number(record?.[x[0]]);return sum+(isNaN(v)?0:v);
-  },0);
+
+/* =====================================================
+   FA SCALE
+===================================================== */
+
+function getFAScale(c){
+
+ c=Number(c);
+
+ if(c>=1 && c<=5)
+  return 15;
+
+ if(c>=6 && c<=8)
+  return 10;
+
+ return 0;
+
 }
-function convertFA(total){
-  return Math.round((Number(total)/50)*getScale());
+
+
+function faTotal(record){
+
+ let total=0;
+
+ FA_COMPONENTS.forEach(x=>{
+
+  total+=Number(
+   record[x[0]]||0
+  );
+
+ });
+
+ return total;
+
 }
-function gradeFromScale(mark,scale){
-  if(mark===""||mark===null||mark===undefined)return "-";
-  const p=(Number(mark)/scale)*100;
-  if(p>=90)return "A+";
-  if(p>=80)return "A";
-  if(p>=70)return "B+";
-  if(p>=60)return "B";
-  if(p>=50)return "C+";
-  if(p>=40)return "C";
-  if(p>=35)return "D";
-  return "E";
+
+
+function convertedFA(total,c){
+
+ const scale=getFAScale(c);
+
+ return Number(
+  (total*scale/50).toFixed(2)
+ );
+
 }
-function gradeFA(record){
-  if(!record||Object.keys(record).length===0)return "-";
-  return gradeFromScale(convertFA(totalFA(record)),getScale());
+
+
+/* =====================================================
+   GRADE
+===================================================== */
+
+function grade(percent){
+
+ percent=Number(percent);
+
+ if(percent>=90)return "A+";
+ if(percent>=80)return "A";
+ if(percent>=70)return "B+";
+ if(percent>=60)return "B";
+ if(percent>=50)return "C+";
+ if(percent>=40)return "C";
+ if(percent>=35)return "D";
+
+ return "E";
+
 }
-function renderMarksEntry(){
-  const c=getClass();
-  if(!c){
-    faMarksBody.innerHTML='<tr><td colspan="10">ಮೊದಲು ತರಗತಿಯನ್ನು ಆಯ್ಕೆ ಮಾಡಿ.</td></tr>';
-    return;
+
+
+/* =====================================================
+   MARK RECORD
+===================================================== */
+
+function getMarkRecord(
+ d,
+ student,
+ subject,
+ assessment
+){
+
+ if(!d.marks[student.id])
+  d.marks[student.id]={};
+
+ if(!d.marks[student.id][subject])
+  d.marks[student.id][subject]={};
+
+ if(!d.marks[student.id][subject][assessment])
+  d.marks[student.id][subject][assessment]={};
+
+ return d.marks[
+  student.id
+ ][subject][assessment];
+
+}
+
+
+/* =====================================================
+   MARKS ENTRY
+===================================================== */
+
+function renderMarks(){
+
+ const c=marksClass.value;
+ const s=marksSection.value;
+ const subject=marksSubject.value;
+ const assessment=
+ assessment.value;
+
+ const d=
+ getClassSection(c,s);
+
+ const students=
+ d.students.filter(
+  x=>x.status!=="Transferred"
+ );
+
+ if(Number(c)<=8){
+
+  marksInfo.innerHTML=
+  `<b>${assessment}</b> |
+   Class ${c} |
+   Section ${s} |
+   ${SUBJECTS[subject]} |
+   FA 50 → ${getFAScale(c)}`;
+
+ }else{
+
+  marksInfo.innerHTML=
+  `<b>Class ${c}</b> |
+   ${assessment} |
+   ${SUBJECTS[subject]} |
+   Special Register`;
+
+ }
+
+
+ if(!students.length){
+
+  marksTable.innerHTML=
+  "<div class='notice'>"+
+  "ಈ Class + Sectionನಲ್ಲಿ ವಿದ್ಯಾರ್ಥಿಗಳಿಲ್ಲ. "+
+  "ಮೊದಲು Student Databaseನಲ್ಲಿ ವಿದ್ಯಾರ್ಥಿಗಳನ್ನು ಸೇರಿಸಿ."
+  +"</div>";
+
+  return;
+
+ }
+
+
+ if(Number(c)<=8 &&
+ assessment.startsWith("FA")){
+
+  renderFA(c,s,subject,assessment,d,students);
+
+  return;
+
+ }
+
+
+ if(Number(c)<=8){
+
+  renderSA(c,s,subject,assessment,d,students);
+
+  return;
+
+ }
+
+
+ renderClass910(
+  c,s,subject,assessment,d,students
+ );
+
+}
+
+
+/* =====================================================
+   CLASS 1-8 FA
+===================================================== */
+
+function renderFA(
+ c,s,subject,assessment,d,students
+){
+
+ const scale=getFAScale(c);
+
+ let html=`
+
+ <div class="table-wrap">
+
+ <table id="marksGrid">
+
+ <thead>
+
+ <tr>
+
+ <th>No</th>
+ <th>Student Name</th>
+
+ `;
+
+ FA_COMPONENTS.forEach(x=>{
+
+  html+=
+  <th>${x[1]}<br>/10</th>;
+
+ });
+
+ html+=`
+
+ <th>Total<br>/50</th>
+ <th>Converted<br>/${scale}</th>
+ <th>Grade</th>
+
+ </tr>
+
+ </thead>
+
+ <tbody>
+
+ `;
+
+
+ students.forEach((st,i)=>{
+
+  const r=
+  getMarkRecord(
+   d,st,subject,assessment
+  );
+
+  const total=faTotal(r);
+
+  const converted=
+  convertedFA(total,c);
+
+  const g=
+  grade(
+   converted/scale*100
+  );
+
+  html+=`
+
+ <tr>
+
+ <td>${i+1}</td>
+
+ <td class="name">
+ ${escapeHTML(st.name)}
+ </td>
+
+ `;
+
+ FA_COMPONENTS.forEach(x=>{
+
+  html+=`
+
+ <td>
+
+ <input
+ class="mark"
+ type="number"
+ min="0"
+ max="10"
+ step="0.01"
+ value="${r[x[0]]??""}"
+ onchange="
+ updateFA(
+ '${st.id}',
+ '${x[0]}',
+ this.value
+ )
+ "
+ >
+
+ </td>
+
+ `;
+
+ });
+
+ html+=`
+
+ <td>${total}</td>
+
+ <td>${converted}</td>
+
+ <td>${g}</td>
+
+ </tr>
+
+ `;
+
+ });
+
+
+ html+=`
+
+ </tbody>
+ </table>
+ </div>
+
+ `;
+
+ marksTable.innerHTML=html;
+
+}
+
+
+/* =====================================================
+   UPDATE FA
+===================================================== */
+
+function updateFA(id,component,value){
+
+ const d=
+ getClassSection(
+  marksClass.value,
+  marksSection.value
+ );
+
+ const st=
+ d.students.find(x=>x.id===id);
+
+ if(!st)return;
+
+ const r=
+ getMarkRecord(
+  d,
+  st,
+  marksSubject.value,
+  assessment.value
+ );
+
+ if(value===""){
+
+  r[component]="";
+
+ }else{
+
+  let n=Number(value);
+
+  if(n<0)n=0;
+  if(n>10)n=10;
+
+  r[component]=n;
+
+ }
+
+ saveData();
+
+ renderMarks();
+
+}
+
+
+/* =====================================================
+   CLASS 1-8 SA
+===================================================== */
+
+function renderSA(
+ c,s,subject,assessment,d,students
+){
+
+ let html=`
+
+ <div class="table-wrap">
+
+ <table>
+
+ <thead>
+
+ <tr>
+ <th>No</th>
+ <th>Student Name</th>
+ <th>Marks /100</th>
+ <th>Grade</th>
+ </tr>
+
+ </thead>
+
+ <tbody>
+ `;
+
+
+ students.forEach((st,i)=>{
+
+  const r=
+  getMarkRecord(
+   d,st,subject,assessment
+  );
+
+  const obtained=
+  Number(r.obtained||0);
+
+  html+=`
+
+ <tr>
+
+ <td>${i+1}</td>
+
+ <td class="name">
+ ${escapeHTML(st.name)}
+ </td>
+
+ <td>
+
+ <input
+ class="mark"
+ type="number"
+ min="0"
+ max="100"
+ value="${r.obtained??""}"
+ onchange="
+ updateSA(
+ '${st.id}',
+ this.value
+ )
+ "
+ >
+
+ </td>
+
+ <td>${grade(obtained)}</td>
+
+ </tr>
+
+ `;
+
+ });
+
+
+ html+=`
+
+ </tbody>
+ </table>
+ </div>
+
+ `;
+
+ marksTable.innerHTML=html;
+
+}
+
+
+function updateSA(id,value){
+
+ const d=
+ getClassSection(
+  marksClass.value,
+  marksSection.value
+ );
+
+ const st=
+ d.students.find(x=>x.id===id);
+
+ const r=
+ getMarkRecord(
+  d,
+  st,
+  marksSubject.value,
+  assessment.value
+ );
+
+ r.obtained=
+ value===""?"":
+ Math.max(
+  0,
+  Math.min(100,Number(value))
+ );
+
+ saveData();
+
+ renderMarks();
+
+}
+
+
+/* =====================================================
+   CLASS 9-10
+===================================================== */
+
+function renderClass910(
+ c,s,subject,assessment,d,students
+){
+
+ let html="";
+
+
+ if(
+  ["FA1","FA2","FA3","FA4"]
+  .includes(assessment)
+ ){
+
+  const actNo=
+  assessment.substring(2);
+
+  html+=`
+
+ <div class="notice">
+
+ ${assessment} :
+ ACT ${actNo} /15 +
+ Test /20 =
+ Total /35
+
+ </div>
+
+ <div class="table-wrap">
+
+ <table>
+
+ <thead>
+
+ <tr>
+ <th>No</th>
+ <th>Student Name</th>
+ <th>ACT /15</th>
+ <th>Test /20</th>
+ <th>Total /35</th>
+ <th>Grade</th>
+ </tr>
+
+ </thead>
+
+ <tbody>
+
+ `;
+
+
+ students.forEach((st,i)=>{
+
+  const r=
+  getMarkRecord(
+   d,st,subject,assessment
+  );
+
+  const total=
+  Number(r.act||0)+
+  Number(r.test||0);
+
+  html+=`
+
+ <tr>
+
+ <td>${i+1}</td>
+
+ <td class="name">
+ ${escapeHTML(st.name)}
+ </td>
+
+ <td>
+ <input class="mark"
+ type="number"
+ min="0"
+ max="15"
+ value="${r.act??""}"
+ onchange="
+ update910('${st.id}','act',this.value)
+ ">
+ </td>
+
+ <td>
+ <input class="mark"
+ type="number"
+ min="0"
+ max="20"
+ value="${r.test??""}"
+ onchange="
+ update910('${st.id}','test',this.value)
+ ">
+ </td>
+
+ <td>${total}</td>
+
+ <td>
+ ${grade(total/35*100)}
+ </td>
+
+ </tr>
+
+ `;
+
+ });
+
+
+ html+=`
+
+ </tbody>
+ </table>
+ </div>
+
+ `;
+
+ }else{
+
+ html+=`
+
+ <div class="notice">
+
+ ${assessment} :
+ Total /125 →
+ For 100 →
+ For 25% →
+ SA Total
+
+ </div>
+
+ <div class="table-wrap">
+
+ <table>
+
+ <thead>
+
+ <tr>
+ <th>No</th>
+ <th>Student Name</th>
+ <th>Total /125</th>
+ <th>For 100</th>
+ <th>For 25%</th>
+ <th>SA Total</th>
+ <th>Grade</th>
+ </tr>
+
+ </thead>
+
+ <tbody>
+
+ `;
+
+
+ students.forEach((st,i)=>{
+
+  const r=
+  getMarkRecord(
+   d,st,subject,assessment
+  );
+
+  const total=
+  Number(r.total||0);
+
+  const for100=
+  total*100/125;
+
+  const for25=
+  total*25/125;
+
+  html+=`
+
+ <tr>
+
+ <td>${i+1}</td>
+
+ <td class="name">
+ ${escapeHTML(st.name)}
+ </td>
+
+ <td>
+
+ <input
+ class="mark"
+ type="number"
+ min="0"
+ max="125"
+ value="${r.total??""}"
+ onchange="
+ update910(
+ '${st.id}',
+ 'total',
+ this.value
+ )
+ "
+ >
+
+ </td>
+
+ <td>${for100.toFixed(2)}</td>
+
+ <td>${for25.toFixed(2)}</td>
+
+ <td>${(for100+for25).toFixed(2)}</td>
+
+ <td>${grade(for100)}</td>
+
+ </tr>
+
+ `;
+
+ });
+
+
+ html+=`
+
+ </tbody>
+ </table>
+ </div>
+
+ `;
+
+ }
+
+ marksTable.innerHTML=html;
+
+}
+
+
+function update910(id,field,value){
+
+ const d=
+ getClassSection(
+  marksClass.value,
+  marksSection.value
+ );
+
+ const st=
+ d.students.find(x=>x.id===id);
+
+ const r=
+ getMarkRecord(
+  d,
+  st,
+  marksSubject.value,
+  assessment.value
+ );
+
+ let max=
+ field==="act"?15:
+ field==="test"?20:
+ 125;
+
+ if(value===""){
+
+  r[field]="";
+
+ }else{
+
+  r[field]=
+  Math.max(
+   0,
+   Math.min(max,Number(value))
+  );
+
+ }
+
+ saveData();
+
+ renderMarks();
+
+}
+
+
+/* =====================================================
+   REPORT
+===================================================== */
+
+function renderReport(){
+
+ const c=reportClass.value;
+ const s=reportSection.value;
+ const subject=reportSubject.value;
+
+ const d=
+ getClassSection(c,s);
+
+ let html=`
+
+ <div class="table-wrap">
+
+ <table id="reportGrid">
+
+ <thead>
+
+ <tr>
+
+ <th>No</th>
+ <th>Student</th>
+ <th>FA1</th>
+ <th>FA2</th>
+ <th>SA1</th>
+ <th>FA3</th>
+ <th>FA4</th>
+ <th>SA2</th>
+
+ </tr>
+
+ </thead>
+
+ <tbody>
+
+ `;
+
+
+ d.students.forEach((st,i)=>{
+
+  html+=`
+
+ <tr>
+
+ <td>${i+1}</td>
+
+ <td class="name">
+ ${escapeHTML(st.name)}
+ </td>
+
+ `;
+
+ ASSESSMENTS.forEach(a=>{
+
+  html+=
+  <td>${assessmentValue(d,st,subject,a,c)}</td>;
+
+ });
+
+ html+=</tr>;
+
+ });
+
+
+ html+=`
+
+ </tbody>
+ </table>
+ </div>
+
+ `;
+
+ reportTable.innerHTML=html;
+
+}
+
+
+function assessmentValue(
+ d,st,subject,a,c
+){
+
+ const r=
+ d.marks?.[st.id]?.[subject]?.[a];
+
+ if(!r)return "-";
+
+
+ if(a.startsWith("FA")){
+
+  if(Number(c)<=8){
+
+   const total=faTotal(r);
+
+   return `
+   ${total}/50
+   →
+   ${convertedFA(total,c)}/${getFAScale(c)}
+   `;
+
   }
-  const assessment=marksAssessment.value;
-  const data=ensureClass();
-  const scale=getScale();
-  marksInfo.innerHTML=`<b>${assessment}</b> — FA ಒಟ್ಟು 50. Class ${c}: <b>50 → ${scale}</b>. 20ಕ್ಕೆ ಇರುವ column ಇಲ್ಲ.`;
-  conversionHeader.textContent="/"+scale;
-  if(assessment.startsWith("FA")){
-    faEntryWrap.classList.remove("hidden");saEntryWrap.classList.add("hidden");
-    let html="";
-    data.students.forEach((s,i)=>{
-      const r=data.assessments[assessment][s.id]||{};
-      html+=`<tr><td>${i+1}</td><td class="name">${escapeHTML(s.name||"ಹೆಸರು ನಮೂದಿಸಿ")}</td>`;
-      FA_COMPONENTS.forEach(([key])=>{
-        html+=`<td><input class="mark-input" type="number" min="0" max="10" step="1" value="${r[key]??""}"
-        oninput="updateFA('${s.id}','${assessment}','${key}',this.value)"></td>`;
-      });
-      const t=totalFA(r),conv=(Object.keys(r).length?convertFA(t):"");
-      html+=`<td class="total-cell" id="t_${assessment}_${s.id}">${t}/50</td>
-      <td class="converted-cell" id="c_${assessment}_${s.id}">${conv===""?"-":conv+"/"+scale}</td>
-      <td class="grade-cell" id="g_${assessment}_${s.id}">${gradeFA(r)}</td></tr>`;
+
+  return (
+   Number(r.act||0)+
+   Number(r.test||0)
+  )+"/35";
+
+ }
+
+
+ return r.obtained ??
+        r.total ??
+        "-";
+
+}
+
+
+/* =====================================================
+   SETTINGS
+===================================================== */
+
+function saveSettings(){
+
+ db.school.name=
+ schoolName.value.trim();
+
+ db.school.udise=
+ udise.value.trim();
+
+ db.school.academicYear=
+ academicYear.value.trim()||
+ "2026-27";
+
+ saveData();
+
+ marksYear.value=
+ db.school.academicYear;
+
+ alert("School Settings saved.");
+
+}
+
+
+function loadSettings(){
+
+ schoolName.value=
+ db.school.name||"";
+
+ udise.value=
+ db.school.udise||"";
+
+ academicYear.value=
+ db.school.academicYear||"";
+
+ supabaseURL.value=
+ db.supabase?.url||"";
+
+ supabaseKey.value=
+ db.supabase?.key||"";
+
+}
+
+
+/* =====================================================
+   TC
+===================================================== */
+
+function renderTCStudents(){
+
+ const c=tcClass.value;
+ const s=tcSection.value;
+
+ const d=
+ getClassSection(c,s);
+
+ tcStudent.innerHTML=
+ d.students.map(st=>
+ `<option value="${st.id}">
+ ${escapeHTML(st.name)}
+ -
+ ${st.status||"Active"}
+ </option>`
+ ).join("");
+
+ loadTC();
+
+}
+
+
+function openTransfer(id){
+
+ tcClass.value=
+ studentClass.value;
+
+ tcSection.value=
+ studentSection.value;
+
+ renderTCStudents();
+
+ tcStudent.value=id;
+
+ loadTC();
+
+ showPage("tc");
+
+}
+
+
+function loadTC(){
+
+ const c=tcClass.value;
+ const s=tcSection.value;
+
+ const d=
+ getClassSection(c,s);
+
+ const st=
+ d.students.find(
+  x=>x.id===tcStudent.value
+ );
+
+ if(!st){
+
+  tcPreview.innerHTML="";
+
+  return;
+
+ }
+
+ tcNumber.value=
+ st.tc?.number||"";
+
+ tcDate.value=
+ st.tc?.date||"";
+
+ tcReason.value=
+ st.tc?.reason||"";
+
+ tcPreview.innerHTML=`
+
+ <div class="card">
+
+ <h2 style="text-align:center">
+ ${escapeHTML(db.school.name||"ಶಾಲೆಯ ಹೆಸರು")}
+ </h2>
+
+ <p style="text-align:center">
+ UDISE: ${escapeHTML(db.school.udise||"-")}
+ </p>
+
+ <hr>
+
+ <h3 style="text-align:center">
+ TRANSFER CERTIFICATE
+ </h3>
+
+ <p>
+ <b>TC Number:</b>
+ ${escapeHTML(st.tc?.number||"-")}
+ </p>
+
+ <p>
+ <b>Date:</b>
+ ${escapeHTML(st.tc?.date||"-")}
+ </p>
+
+ <p>
+ <b>Student Name:</b>
+ ${escapeHTML(st.name)}
+ </p>
+
+ <p>
+ <b>Class:</b> ${c}
+ &nbsp;&nbsp;
+ <b>Section:</b> ${s}
+ </p>
+
+ <p>
+ <b>Status:</b>
+ ${escapeHTML(st.status||"Active")}
+ </p>
+
+ <p>
+ <b>Reason:</b>
+ ${escapeHTML(st.tc?.reason||"-")}
+ </p>
+
+ <br><br>
+
+ <div style="text-align:right">
+ Head Teacher / Principal
+ </div>
+
+ </div>
+
+ `;
+
+}
+
+
+function saveTC(){
+
+ const c=tcClass.value;
+ const s=tcSection.value;
+
+ const d=
+ getClassSection(c,s);
+
+ const st=
+ d.students.find(
+  x=>x.id===tcStudent.value
+ );
+
+ if(!st){
+
+  alert("ವಿದ್ಯಾರ್ಥಿಯನ್ನು ಆಯ್ಕೆ ಮಾಡಿ.");
+
+  return;
+
+ }
+
+ st.status="Transferred";
+
+ st.tc={
+  number:tcNumber.value,
+  date:tcDate.value,
+  reason:tcReason.value
+ };
+
+ saveData();
+
+ loadTC();
+
+ alert("Transfer / TC details saved.");
+
+}
+
+
+function printTC(){
+
+ const content=
+ document.getElementById("tcPreview").innerHTML;
+
+ const w=
+ window.open("","_blank");
+
+ w.document.write(`
+ <html>
+ <head>
+ <title>Transfer Certificate</title>
+
+ <style>
+ body{
+  font-family:Arial;
+  padding:40px;
+ }
+ </style>
+
+ </head>
+
+ <body>
+
+ ${content}
+
+ </body>
+ </html>
+ `);
+
+ w.document.close();
+
+ w.print();
+
+}
+
+
+/* =====================================================
+   EXCEL EXPORT
+===================================================== */
+
+function exportStudents(){
+
+ const data=[];
+
+ for(let c=1;c<=10;c++){
+
+  SECTIONS.forEach(s=>{
+
+   const d=
+   db.classes[c]?.[s];
+
+   if(!d)return;
+
+   d.students.forEach(st=>{
+
+    data.push({
+
+     Class:c,
+
+     Section:s,
+
+     AdmissionNo:
+     st.admission||"",
+
+     Name:st.name,
+
+     Status:
+     st.status||"Active"
+
     });
-    faMarksBody.innerHTML=html||'<tr><td colspan="10">ವಿದ್ಯಾರ್ಥಿಗಳನ್ನು ಮೊದಲು ಸೇರಿಸಿ.</td></tr>';
-  }else{
-    faEntryWrap.classList.add("hidden");saEntryWrap.classList.remove("hidden");
-    let html="";
-    data.students.forEach((s,i)=>{
-      const r=data.assessments[assessment][s.id]||{};
-      html+=`<tr><td>${i+1}</td><td class="name">${escapeHTML(s.name||"ಹೆಸರು ನಮೂದಿಸಿ")}</td>
-      <td><input class="mark-input" type="number" min="0" value="${r.obtained??""}" oninput="updateSA('${s.id}','${assessment}',this.value,'obtained')"></td>
-      <td><input class="mark-input" type="number" min="1" value="${r.max??100}" oninput="updateSA('${s.id}','${assessment}',this.value,'max')"></td>
-      <td class="grade-cell" id="sg_${assessment}_${s.id}">${gradeSA(r)}</td></tr>`;
-    });
-    saMarksBody.innerHTML=html||'<tr><td colspan="5">ವಿದ್ಯಾರ್ಥಿಗಳನ್ನು ಮೊದಲು ಸೇರಿಸಿ.</td></tr>';
-  }
-  updateDashFAEntries();
-}
-function updateFA(id,a,key,value){
-  const data=ensureClass();
-  if(!data.assessments[a][id])data.assessments[a][id]={};
-  if(value===""){data.assessments[a][id][key]="";}
-  else{
-    const v=Number(value);
-    if(isNaN(v)||v<0||v>10){alert("ಪ್ರತಿ ಘಟಕಕ್ಕೆ 0 ರಿಂದ 10ರೊಳಗಿನ ಅಂಕ ಮಾತ್ರ.");return;}
-    data.assessments[a][id][key]=v;
-  }
-  const r=data.assessments[a][id],t=totalFA(r),conv=convertFA(t);
-  document.getElementById(`t_${a}_${id}`).textContent=t+"/50";
-  document.getElementById(`c_${a}_${id}`).textContent=conv+"/"+getScale();
-  document.getElementById(`g_${a}_${id}`).textContent=gradeFA(r);
-  saveDB();updateReport();updateDashFAEntries();
-}
 
-/* ========================= SA ========================= */
-function updateSA(id,a,key,value){
-  const data=ensureClass();
-  if(!data.assessments[a][id])data.assessments[a][id]={max:100,obtained:""};
-  let v=value===""?"":Number(value);
-  if(key==="max" && (v===""||v<1))v=100;
-  if(key==="obtained" && v!=="" && (v<0||v>Number(data.assessments[a][id].max||100))){alert("ಪಡೆದ ಅಂಕ ಗರಿಷ್ಠ ಅಂಕಕ್ಕಿಂತ ಹೆಚ್ಚಿರಬಾರದು.");return;}
-  data.assessments[a][id][key]=v;
-  document.getElementById(`sg_${a}_${id}`).textContent=gradeSA(data.assessments[a][id]);
-  saveDB();updateReport();
-}
-function gradeSA(r){
-  if(!r||r.obtained===""||r.obtained===undefined)return "-";
-  return gradeFromScale(r.obtained,Number(r.max||100));
-}
+   });
 
-/* ========================= REPORT ========================= */
-function resultText(data,a,id){
-  const r=data.assessments[a][id];
-  if(a.startsWith("FA")){
-    if(!r||Object.keys(r).length===0)return "-";
-    return `${convertFA(totalFA(r))} (${gradeFA(r)})`;
-  }
-  if(!r||r.obtained===""||r.obtained===undefined)return "-";
-  return `${r.obtained}/${r.max||100} (${gradeSA(r)})`;
-}
-function updateReport(){
-  const c=getClass();reportBody.innerHTML="";
-  if(!c){reportBody.innerHTML='<tr><td colspan="8">ತರಗತಿ ಆಯ್ಕೆ ಮಾಡಿ.</td></tr>';return;}
-  const data=ensureClass();
-  reportSchoolName.textContent=db.school.name||"ಶಾಲೆಯ ಹೆಸರು";
-  reportMeta.textContent=`DISE: ${db.school.udise||"-"} | Class: ${c} | Academic Year: ${db.school.academicYear||"2026-27"} | FA Scale: ${getScale()}`;
-  data.students.forEach((s,i)=>{
-    reportBody.innerHTML+=`<tr><td>${i+1}</td><td class="name">${escapeHTML(s.name||"ಹೆಸರು ನಮೂದಿಸಿ")}</td>
-    ${["FA1","FA2","SA1","FA3","FA4","SA2"].map(a=>`<td>${resultText(data,a,s.id)}</td>`).join("")}</tr>`;
   });
-}
-function updateDashFAEntries(){
-  const c=getClass();if(!c){dashFACompleted.textContent="0";return;}
-  const data=ensureClass();let count=0;
-  data.students.forEach(s=>["FA1","FA2","FA3","FA4"].forEach(a=>{const r=data.assessments[a][s.id];if(r&&Object.keys(r).length)count++;}));
-  dashFACompleted.textContent=count;
+
+ }
+
+ const ws=
+ XLSX.utils.json_to_sheet(data);
+
+ const wb=
+ XLSX.utils.book_new();
+
+ XLSX.utils.book_append_sheet(
+  wb,
+  ws,
+  "Students"
+ );
+
+ XLSX.writeFile(
+  wb,
+  "CCE_Students.xlsx"
+ );
+
 }
 
-/* ========================= EXPORT EXCEL ========================= */
-function exportExcel(){
-  const c=getClass();if(!c){alert("ಮೊದಲು ತರಗತಿಯನ್ನು ಆಯ್ಕೆ ಮಾಡಿ.");return;}
-  const data=ensureClass();
-  const wb=XLSX.utils.book_new();
-  const rows=[
-    ["School Name",db.school.name],["DISE / UDISE",db.school.udise],["Academic Year",db.school.academicYear],["Class",c],["FA Scale",getScale()],[],
-    ["Sl.No","Student Name","FA 1","FA 2","SA 1","FA 3","FA 4","SA 2"]
-  ];
-  data.students.forEach((s,i)=>rows.push([i+1,s.name,...["FA1","FA2","SA1","FA3","FA4","SA2"].map(a=>resultText(data,a,s.id))]));
-  const ws=XLSX.utils.aoa_to_sheet(rows);ws["!cols"]=[{wch:8},{wch:30},{wch:16},{wch:16},{wch:16},{wch:16},{wch:16},{wch:16}];
-  XLSX.utils.book_append_sheet(wb,ws,"Consolidated");
 
-  const details=[["Sl.No","Student Name","Assessment","Homework /10","Unit Test /10","Thinking /10","Activity Book /10","Participation /10","Total /50","Converted","Grade"]];
-  data.students.forEach((s,i)=>{
-    ["FA1","FA2","FA3","FA4"].forEach(a=>{
-      const r=data.assessments[a][s.id]||{};
-      const filled=Object.keys(r).length>0;
-      details.push([i+1,s.name,a,r.homework??"",r.unit??"",r.thinking??"",r.activity??"",r.participation??"",filled?totalFA(r):"",filled?convertFA(totalFA(r)):"",filled?gradeFA(r):""]);
-    });
+function exportMarks(){
+
+ const c=marksClass.value;
+ const s=marksSection.value;
+ const sub=marksSubject.value;
+ const a=assessment.value;
+
+ const d=
+ getClassSection(c,s);
+
+ const data=[];
+
+ d.students.forEach((st,i)=>{
+
+  const r=
+  d.marks?.[st.id]?.[sub]?.[a]||{};
+
+  data.push({
+
+   No:i+1,
+
+   Class:c,
+
+   Section:s,
+
+   Name:st.name,
+
+   Subject:SUBJECTS[sub],
+
+   Assessment:a,
+
+   Status:st.status,
+
+   ...r
+
   });
-  const ws2=XLSX.utils.aoa_to_sheet(details);XLSX.utils.book_append_sheet(wb,ws2,"FA Details");
-  XLSX.writeFile(wb,`CCE_Class_${c}.xlsx`);
+
+ });
+
+ const ws=
+ XLSX.utils.json_to_sheet(data);
+
+ const wb=
+ XLSX.utils.book_new();
+
+ XLSX.utils.book_append_sheet(
+  wb,
+  ws,
+  "Marks"
+ );
+
+ XLSX.writeFile(
+  wb,
+  CCE_${c}_${s}_${a}.xlsx
+ );
+
 }
 
-/* ========================= PDF ========================= */
+
+function exportReportExcel(){
+
+ const table=
+ document.getElementById("reportGrid");
+
+ if(!table)return;
+
+ const ws=
+ XLSX.utils.table_to_sheet(table);
+
+ const wb=
+ XLSX.utils.book_new();
+
+ XLSX.utils.book_append_sheet(
+  wb,
+  ws,
+  "Report"
+ );
+
+ XLSX.writeFile(
+  wb,
+  "CCE_Consolidated_Report.xlsx"
+ );
+
+}
+
+
+/* =====================================================
+   PDF
+===================================================== */
+
 function exportPDF(){
-  const c=getClass();if(!c){alert("ಮೊದಲು ತರಗತಿಯನ್ನು ಆಯ್ಕೆ ಮಾಡಿ.");return;}
-  const {jsPDF}=window.jspdf;const doc=new jsPDF({orientation:"landscape",unit:"mm",format:"a4"});
-  doc.setFontSize(15);doc.text(db.school.name||"School",148,10,{align:"center"});
-  doc.setFontSize(9);doc.text(`DISE: ${db.school.udise||"-"} | Class: ${c} | Academic Year: ${db.school.academicYear||""} | FA Scale: ${getScale()}`,10,18);
-  const data=ensureClass();
-  const rows=data.students.map((s,i)=>[i+1,s.name,...["FA1","FA2","SA1","FA3","FA4","SA2"].map(a=>resultText(data,a,s.id))]);
-  doc.autoTable({startY:23,head:[["Sl.No","Student Name","FA 1","FA 2","SA 1","FA 3","FA 4","SA 2"]],body:rows,styles:{fontSize:7,cellPadding:2},margin:{left:7,right:7}});
-  doc.save(`CCE_Class_${c}.pdf`);
+
+ const {jsPDF}=
+ window.jspdf;
+
+ const doc=
+ new jsPDF({
+  orientation:"landscape"
+ });
+
+ doc.text(
+  db.school.name||
+  "CCE Consolidated Report",
+  14,
+  12
+ );
+
+ doc.text(
+  "UDISE: "+
+  (db.school.udise||"-")+
+  " | Academic Year: "+
+  db.school.academicYear,
+  14,
+  18
+ );
+
+ doc.autoTable({
+  html:"#reportGrid",
+  startY:24,
+  styles:{
+   fontSize:7
+  }
+ });
+
+ doc.save(
+  "CCE_Consolidated_Report.pdf"
+ );
+
 }
 
-/* ========================= PRINT ========================= */
-function printReport(){
-  showPage("reportPage");updateReport();setTimeout(()=>window.print(),250);
+
+/* =====================================================
+   PRINT
+===================================================== */
+
+function printArea(id){
+
+ const el=
+ document.getElementById(id);
+
+ if(!el)return;
+
+ const w=
+ window.open("","_blank");
+
+ w.document.write(`
+
+ <html>
+
+ <head>
+
+ <title>Print</title>
+
+ <style>
+
+ body{
+  font-family:Arial;
+  padding:15px;
+ }
+
+ table{
+  border-collapse:collapse;
+  width:100%;
+  font-size:10px;
+ }
+
+ th,td{
+  border:1px solid #555;
+  padding:5px;
+  text-align:center;
+ }
+
+ th{
+  background:#eee;
+ }
+
+ </style>
+
+ </head>
+
+ <body>
+
+ <h2>
+ ${escapeHTML(db.school.name||"CCE")}
+ </h2>
+
+ <p>
+ UDISE:
+ ${escapeHTML(db.school.udise||"-")}
+ |
+ Academic Year:
+ ${escapeHTML(db.school.academicYear||"-")}
+ </p>
+
+ ${el.innerHTML}
+
+ </body>
+
+ </html>
+
+ `);
+
+ w.document.close();
+
+ w.print();
+
 }
 
-/* ========================= PAGE NAV ========================= */
-function showPage(id){
-  document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
-  document.getElementById(id).classList.add("active");
-  document.querySelectorAll(".nav button").forEach(b=>b.classList.remove("active"));
-  const map={dashboardPage:"navDashboard",studentPage:"navStudents",marksPage:"navMarks",reportPage:"navReport",settingsPage:"navSettings"};
-  if(map[id])document.getElementById(map[id]).classList.add("active");
-  if(id==="studentPage")renderStudents();
-  if(id==="marksPage")renderMarksEntry();
-  if(id==="reportPage")updateReport();
+
+/* =====================================================
+   SUPABASE SETTINGS
+===================================================== */
+
+function saveSupabaseSettings(){
+
+ db.supabase={
+
+  url:
+  supabaseURL.value.trim(),
+
+  key:
+  supabaseKey.value.trim()
+
+ };
+
+ saveData();
+
+ alert(
+  "Supabase settings saved locally."
+ );
+
 }
 
-/* ========================= RESET ========================= */
-function resetAllData(){
-  if(!confirm("ಎಲ್ಲಾ ಶಾಲಾ, ವಿದ್ಯಾರ್ಥಿ ಮತ್ತು ಅಂಕಗಳ data ಅಳಿಸಬೇಕೇ?"))return;
-  localStorage.removeItem("CCE_APP_DATA_V2");
-  location.reload();
-}
-function saveData(){saveDB();notify("Data saved successfully.");}
 
-/* ========================= REFRESH ========================= */
-function refreshAll(){
-  renderStudents();renderMarksEntry();updateReport();updateDashFAEntries();
+/*
+  Optional Supabase REST synchronization.
+
+  Required table example:
+
+  create table cce_app_data (
+    id text primary key,
+    school_name text,
+    udise text,
+    academic_year text,
+    payload jsonb
+  );
+*/
+
+
+async function syncSupabase(){
+
+ const url=
+ db.supabase?.url;
+
+ const key=
+ db.supabase?.key;
+
+ if(!url||!key){
+
+  alert(
+   "Settingsನಲ್ಲಿ Supabase URL ಮತ್ತು Key ಹಾಕಿ."
+  );
+
+  return;
+
+ }
+
+ syncMessage.textContent=
+ "Supabase Sync ನಡೆಯುತ್ತಿದೆ...";
+
+ try{
+
+  const response=
+  await fetch(
+   url.replace(/\/$/,"")+
+   "/rest/v1/cce_app_data",
+   {
+
+    method:"POST",
+
+    headers:{
+     "apikey":key,
+     "Authorization":
+     "Bearer "+key,
+     "Content-Type":
+     "application/json",
+     "Prefer":
+     "resolution=merge-duplicates"
+    },
+
+    body:JSON.stringify({
+
+     id:"main",
+
+     school_name:
+     db.school.name,
+
+     udise:
+     db.school.udise,
+
+     academic_year:
+     db.school.academicYear,
+
+     payload:db
+
+    })
+
+   }
+  );
+
+  if(!response.ok){
+
+   throw new Error(
+    await response.text()
+   );
+
+  }
+
+  syncMessage.textContent=
+  "✅ Supabase Sync ಯಶಸ್ವಿಯಾಗಿದೆ.";
+
+ }catch(error){
+
+  syncMessage.textContent=
+  "❌ Sync Error: "+
+  error.message;
+
+ }
+
 }
 
-/* ========================= START ========================= */
-loadSchool();
-if(db.selectedClass){
-  classSelect.value=db.selectedClass;
-  studentClass.value=db.selectedClass;
-  marksClass.value=db.selectedClass;
+
+/* =====================================================
+   RESET
+===================================================== */
+
+function resetData(){
+
+ if(!confirm(
+  "ಎಲ್ಲಾ CCE data delete ಆಗುತ್ತದೆ. ಮುಂದುವರಿಯಬೇಕೇ?"
+ ))return;
+
+ localStorage.removeItem(DB_KEY);
+
+ location.reload();
+
 }
 
-if(getClass()){
-  const d=ensureClass();
-  sectionSelect.value=d?.section||"A";
-  studentSection.value=sectionSelect.value;
+
+/* =====================================================
+   HTML SECURITY
+===================================================== */
+
+function escapeHTML(value){
+
+ return String(value??"")
+ .replace(/[&<>"']/g,function(m){
+
+  return {
+
+   "&":"&amp;",
+   "<":"&lt;",
+   ">":"&gt;",
+   '"':"&quot;",
+   "'":"&#039;"
+
+  }[m];
+
+ });
+
 }
-refreshAll();
+
+
+/* =====================================================
+   START
+===================================================== */
+
+fillSelectors();
+
+updateHeader();
+
+updateDashboard();
+
+showPage("dashboard");
+
 </script>
+
 </body>
 </html>
