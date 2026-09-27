@@ -10,12 +10,6 @@
 <!-- PDF -->
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"<>/script>
-
-<script> 
- const SUPABASE_URL="https://ksbqlqheunwqdybeetjg.supabase.co";
- const SUPABASE_KEY="sb_publishable_okeyyRTgyfc-Hx9c1frZsA_uK30BsOm";
-  </script>
 <style>*{box-sizing:border-box}
 body{margin:0;font-family:"Noto Sans Kannada","Nirmala UI",Arial,sans-serif;background:#f3f6fb;color:#172033}
 header{background:linear-gradient(135deg,#21121d,#4b1425);color:#fff;padding:14px 18px;box-shadow:0 2px 10px #0003}
@@ -75,7 +69,7 @@ footer{text-align:center;padding:18px;color:#667085;font-size:12px}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
   const SUPABASE_URL = "https://ksbqlqheunwqdybeetjg.supabase.co";
-  const SUPABASE_KEY = "ನಿಮ್ಮ_Publishable_Key_ಇಲ್ಲಿ";
+  const SUPABASE_KEY = "sb_publishable_okeyyRTgyfc-Hx9c1frZsA_uK30BsOm";
 
   const supabaseClient = window.supabase.createClient(
     SUPABASE_URL,
@@ -202,6 +196,18 @@ footer{text-align:center;padding:18px;color:#667085;font-size:12px}
         <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
         <option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option>
       </select></div>
+     <div>
+<label>ವಿಷಯ / Subject</label>
+<select id="subjectSelect" onchange="renderMarksEntry()">
+<option value="firstLanguage">ಪ್ರಥಮ ಭಾಷೆ</option>
+<option value="secondLanguage">ದ್ವಿತೀಯ ಭಾಷೆ</option>
+<option value="thirdLanguage">ತೃತೀಯ ಭಾಷೆ</option>
+<option value="mathematics">ಗಣಿತ</option>
+<option value="science">ವಿಜ್ಞಾನ</option>
+<option value="socialScience">ಸಮಾಜ ವಿಜ್ಞಾನ</option>
+</select>
+</div>
+ 
       <div><label>Assessment</label><select id="marksAssessment" onchange="renderMarksEntry()">
         <option value="FA1">FA 1</option><option value="FA2">FA 2</option><option value="SA1">SA 1</option>
         <option value="FA3">FA 3</option><option value="FA4">FA 4</option><option value="SA2">SA 2</option>
@@ -209,7 +215,7 @@ footer{text-align:center;padding:18px;color:#667085;font-size:12px}
     </div>
 
     <div id="marksInfo" class="status"></div>
-<div class="no-print" style="margin:10x0:">
+<div class="no-print" style="margin:10px 0;">
  <button class="primary" onclick="window.print()">
   Marks Entry Print</button>
 </div>
@@ -332,6 +338,23 @@ function ensureClass(){
     };
   }
   return db.classes[c];
+ 
+}
+ function getSubject(){
+  const el=document.getElementById("subjectSelect");
+  return el ? el.value : "firstLanguage";
+}
+
+function getSubjectName(){
+  const names={
+    firstLanguage:"ಪ್ರಥಮ ಭಾಷೆ",
+    secondLanguage:"ದ್ವಿತೀಯ ಭಾಷೆ",
+    thirdLanguage:"ತೃತೀಯ ಭಾಷೆ",
+    mathematics:"ಗಣಿತ",
+    science:"ವಿಜ್ಞಾನ",
+    socialScience:"ಸಮಾಜ ವಿಜ್ಞಾನ"
+  };
+  return names[getSubject()] || "ಪ್ರಥಮ ಭಾಷೆ";
 }
 function escapeHTML(s){
   return String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");
