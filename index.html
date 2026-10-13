@@ -5277,12 +5277,16 @@ try { fmt2 = window.fmt2; } catch(e) {}
         <div class="v110-note"><b>ಮೊದಲ ಬಾರಿ ಮಾತ್ರ:</b> ನಿಮ್ಮ Master Admin PIN ಸೃಷ್ಟಿಸಿ. ಈ PIN ಶಾಲೆಗಳಿಗೆ ಕೊಡಬೇಡಿ.</div>
         <div class="v110-field"><label>Create Master Admin PIN</label><div class="v110-passrow"><input id="v110NewPin" type="password" inputmode="numeric" placeholder="ಕನಿಷ್ಠ 4 ಅಂಕ"><button class="v110-btn v110-light v110-eye" onclick="v110TogglePass('v110NewPin')">👁</button></div></div>
         <div class="v110-field"><label>Confirm PIN</label><div class="v110-passrow"><input id="v110ConfirmPin" type="password" inputmode="numeric" placeholder="ಅದೇ PIN ಮತ್ತೆ ನಮೂದಿಸಿ"><button class="v110-btn v110-light v110-eye" onclick="v110TogglePass('v110ConfirmPin')">👁</button></div></div>
+        <div class="v110-note" style="margin-top:8px"><b>Recovery Code:</b> Master PIN ಮರೆತರೆ ಇದರಿಂದ ಹೊಸ PIN ಹೊಂದಿಸಬಹುದು. ಇದನ್ನು ಶಾಲೆಗಳಿಗೆ ಕೊಡಬೇಡಿ; ಸುರಕ್ಷಿತವಾಗಿ ಬೇರೆ ಜಾಗದಲ್ಲಿ ಬರೆಯಿಟ್ಟುಕೊಳ್ಳಿ.</div>
+        <div class="v110-field"><label>Create Recovery Code</label><div class="v110-passrow"><input id="v180RecoveryCode" type="password" placeholder="ಕನಿಷ್ಠ 6 ಅಕ್ಷರ/ಅಂಕಗಳು"><button class="v110-btn v110-light v110-eye" onclick="v110TogglePass('v180RecoveryCode')">👁</button></div></div>
+        <div class="v110-field"><label>Confirm Recovery Code</label><div class="v110-passrow"><input id="v180RecoveryConfirm" type="password" placeholder="Recovery Code ಮತ್ತೆ ನಮೂದಿಸಿ"><button class="v110-btn v110-light v110-eye" onclick="v110TogglePass('v180RecoveryConfirm')">👁</button></div></div>
         <button class="v110-btn v110-success" style="width:100%" onclick="v110CreateAdminPin()">✅ Create Admin PIN & Continue</button>
       </div>
       <div id="v110LoginPane" style="display:none">
         <div class="v110-note"><b>Admin ಮಾತ್ರ:</b> Multi‑School accounts, passwords, payment ಮತ್ತು expiry ಇಲ್ಲಿ ನಿಯಂತ್ರಿಸಲಾಗುತ್ತದೆ.</div>
         <div class="v110-field"><label>Master Admin PIN</label><div class="v110-passrow"><input id="v110AdminPin" type="password" inputmode="numeric" placeholder="Admin PIN"><button class="v110-btn v110-light v110-eye" onclick="v110TogglePass('v110AdminPin')">👁</button></div></div>
         <button class="v110-btn v110-primary" style="width:100%" onclick="v110AdminLogin()">🔓 Open Multi‑School Admin</button>
+        <button id="v180ForgotAdminPinBtn" class="v110-btn v110-light" style="width:100%;margin-top:8px" onclick="v180ForgotMasterPin()">🔑 Forgot Master PIN / PIN ಮರೆತಿದ್ದೀರಾ?</button>
       </div>
       <div id="v110GateMsg"></div>
     </div>
@@ -5323,7 +5327,7 @@ try { fmt2 = window.fmt2; } catch(e) {}
         <div class="v110-field"><label>School Contact Mobile</label><input id="v110Mobile" placeholder="Mobile number"></div>
         <div class="v110-field"><label>Notes</label><input id="v110Notes" placeholder="Optional"></div>
       </div>
-      <div class="v110-actions"><button class="v110-btn v110-success" onclick="v110SaveSchool()">💾 Save / Update School</button><button class="v110-btn v110-light" onclick="v110ClearForm()">➕ New School</button><button class="v110-btn v110-primary" onclick="v110RenderSchools()">↻ Refresh</button><button class="v110-btn v110-dark" onclick="v110OpenChangePin()">🔐 Change Admin PIN</button><button id="v176MasterResetBtn" class="v110-btn v110-warning" type="button" onclick="v175ResetHeadTeacherPin()">🔑 Reset Head Teacher PIN</button></div>
+      <div class="v110-actions"><button class="v110-btn v110-success" onclick="v110SaveSchool()">💾 Save / Update School</button><button class="v110-btn v110-light" onclick="v110ClearForm()">➕ New School</button><button class="v110-btn v110-primary" onclick="v110RenderSchools()">↻ Refresh</button><button class="v110-btn v110-dark" onclick="v110OpenChangePin()">🔐 Change Admin PIN</button><button id="v180RecoveryAdminBtn" class="v110-btn v110-light" type="button" onclick="v180SetRecoveryCode()">🧩 Set / Change Recovery Code</button><button id="v176MasterResetBtn" class="v110-btn v110-warning" type="button" onclick="v175ResetHeadTeacherPin()">🔑 Reset Head Teacher PIN</button></div>
       <div id="v110Summary" class="v110-note"></div><div id="v110SchoolTable"></div>
     </div>
   </div>
@@ -13563,5 +13567,233 @@ if(document.readyState==='loading'){
 }else{
   setTimeout(refresh,500);
 }
+})();
+</script>
+
+
+<!-- =========================================================
+ v180 MASTER ADMIN PIN RECOVERY
+ - First-time setup now requires Master PIN + Recovery Code.
+ - Recovery Code is stored as a SHA-256 hash, not as plain text.
+ - "Forgot Master PIN" allows setting a new Master PIN after
+   correct Recovery Code verification.
+ - Master Admin can change the Recovery Code later.
+ - Existing school/marks/reports/Supabase logic is untouched.
+========================================================== -->
+<style id="v180RecoveryStyle">
+#v180ForgotAdminPinBtn{font-weight:800}
+#v180RecoveryAdminBtn{font-weight:800}
+</style>
+
+<script id="v180MasterPinRecovery">
+(function(){
+'use strict';
+
+const ADMIN_PIN_KEY='TFCCE_V110_ADMIN_PIN';
+const ADMIN_SESSION_KEY='TFCCE_V110_ADMIN_SESSION';
+const RECOVERY_HASH_KEY='TFCCE_V180_ADMIN_RECOVERY_HASH';
+const RECOVERY_VERSION_KEY='TFCCE_V180_ADMIN_RECOVERY_VERSION';
+
+function el(id){ return document.getElementById(id); }
+
+async function sha256(text){
+  const value=String(text||'');
+  try{
+    if(window.crypto && crypto.subtle){
+      const data=new TextEncoder().encode(value);
+      const digest=await crypto.subtle.digest('SHA-256',data);
+      return Array.from(new Uint8Array(digest))
+        .map(b=>b.toString(16).padStart(2,'0')).join('');
+    }
+  }catch(e){}
+  /* Fallback used only where Web Crypto is unavailable. */
+  let h1=0x811c9dc5;
+  for(let i=0;i<value.length;i++){
+    h1^=value.charCodeAt(i);
+    h1=Math.imul(h1,0x01000193);
+  }
+  return 'fallback-'+(h1>>>0).toString(16);
+}
+
+async function recoveryMatches(code){
+  const stored=localStorage.getItem(RECOVERY_HASH_KEY)||'';
+  if(!stored) return false;
+  const h=await sha256(code);
+  return h===stored;
+}
+
+async function saveRecovery(code){
+  localStorage.setItem(RECOVERY_HASH_KEY,await sha256(code));
+  localStorage.setItem(RECOVERY_VERSION_KEY,'1');
+}
+
+/* Override first-time setup so recovery is mandatory. */
+window.v110CreateAdminPin=async function(){
+  const a=(el('v110NewPin')?.value||'').trim();
+  const b=(el('v110ConfirmPin')?.value||'').trim();
+  const r1=(el('v180RecoveryCode')?.value||'').trim();
+  const r2=(el('v180RecoveryConfirm')?.value||'').trim();
+  const msg=el('v110GateMsg');
+
+  if(a.length<4){
+    if(msg) msg.innerHTML='<div class="v110-note v110-error">Master PIN ಕನಿಷ್ಠ 4 ಅಂಕ/ಅಕ್ಷರ ಇರಬೇಕು.</div>';
+    return;
+  }
+  if(a!==b){
+    if(msg) msg.innerHTML='<div class="v110-note v110-error">ಎರಡು PINಗಳು ಒಂದೇ ಆಗಿಲ್ಲ.</div>';
+    return;
+  }
+  if(r1.length<6){
+    if(msg) msg.innerHTML='<div class="v110-note v110-error">Recovery Code ಕನಿಷ್ಠ 6 ಅಕ್ಷರ/ಅಂಕಗಳಿರಬೇಕು.</div>';
+    return;
+  }
+  if(r1!==r2){
+    if(msg) msg.innerHTML='<div class="v110-note v110-error">Recovery Code ಎರಡು ಬಾರಿ ಒಂದೇ ಆಗಿಲ್ಲ.</div>';
+    return;
+  }
+  if(r1===a){
+    if(msg) msg.innerHTML='<div class="v110-note v110-error">Recovery Code ಮತ್ತು Master PIN ಒಂದೇ ಆಗಬಾರದು.</div>';
+    return;
+  }
+
+  try{
+    await saveRecovery(r1);
+    localStorage.setItem(ADMIN_PIN_KEY,a);
+    sessionStorage.setItem(ADMIN_SESSION_KEY,'1');
+
+    if(typeof window.v110CloseAdminGate==='function') window.v110CloseAdminGate();
+    else document.getElementById('v110AdminGate')?.classList.remove('open');
+
+    const admin=el('v110Admin');
+    if(admin){
+      admin.classList.add('open');
+      admin.setAttribute('aria-hidden','false');
+    }
+
+    try{ if(typeof window.v110ClearForm==='function') window.v110ClearForm(); }catch(e){}
+    try{ if(typeof window.v110RenderSchools==='function') window.v110RenderSchools(); }catch(e){}
+
+    alert(
+      '✅ Master Admin PIN ಮತ್ತು Recovery Code ಉಳಿಸಲಾಗಿದೆ.\n\n'+
+      'Recovery Code ಅನ್ನು ಸುರಕ್ಷಿತವಾಗಿ ಬೇರೆ ಜಾಗದಲ್ಲಿ ಬರೆಯಿಟ್ಟುಕೊಳ್ಳಿ.'
+    );
+  }catch(e){
+    console.error(e);
+    if(msg) msg.innerHTML='<div class="v110-note v110-error">Setup save ಆಗಲಿಲ್ಲ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.</div>';
+  }
+};
+
+/* Forgot Master PIN flow. */
+window.v180ForgotMasterPin=async function(){
+  const hasRecovery=!!localStorage.getItem(RECOVERY_HASH_KEY);
+  if(!hasRecovery){
+    alert(
+      'Recovery Code ಇನ್ನೂ configure ಆಗಿಲ್ಲ.\n\n'+
+      'ಈ browserನಲ್ಲಿ ಹಳೆಯ Master PIN ಮಾತ್ರ ಇದ್ದರೆ ಮೊದಲು ಅದರಿಂದ login ಮಾಡಿ '+
+      '“Set / Change Recovery Code” ಬಳಸಿ.'
+    );
+    return;
+  }
+
+  const code=(prompt('Master Admin Recovery Code ನಮೂದಿಸಿ:','')||'').trim();
+  if(!code) return;
+
+  if(!(await recoveryMatches(code))){
+    alert('Recovery Code ತಪ್ಪಾಗಿದೆ.');
+    return;
+  }
+
+  const p1=(prompt('ಹೊಸ Master Admin PIN ನಮೂದಿಸಿ (ಕನಿಷ್ಠ 4 ಅಂಕ/ಅಕ್ಷರ):','')||'').trim();
+  if(p1.length<4){
+    alert('ಹೊಸ PIN ಕನಿಷ್ಠ 4 ಅಂಕ/ಅಕ್ಷರ ಇರಬೇಕು.');
+    return;
+  }
+  const p2=(prompt('ಹೊಸ PIN ಮತ್ತೆ ನಮೂದಿಸಿ / Confirm PIN:','')||'').trim();
+  if(p1!==p2){
+    alert('ಹೊಸ PIN ಹೊಂದಿಕೆಯಾಗಲಿಲ್ಲ.');
+    return;
+  }
+
+  localStorage.setItem(ADMIN_PIN_KEY,p1);
+  sessionStorage.removeItem(ADMIN_SESSION_KEY);
+
+  if(el('v110AdminPin')) el('v110AdminPin').value='';
+  if(el('v110GateMsg')) {
+    el('v110GateMsg').innerHTML='<div class="v110-note v110-ok">✅ Master Admin PIN reset ಆಗಿದೆ. ಈಗ ಹೊಸ PIN ಮೂಲಕ login ಮಾಡಿ.</div>';
+  }
+  alert('✅ Master Admin PIN ಯಶಸ್ವಿಯಾಗಿ reset ಆಗಿದೆ.');
+};
+
+/* Set or change recovery code from authenticated Master Admin area. */
+window.v180SetRecoveryCode=async function(){
+  if(sessionStorage.getItem(ADMIN_SESSION_KEY)!=='1'){
+    alert('Master Admin login required.');
+    return;
+  }
+
+  const has=!!localStorage.getItem(RECOVERY_HASH_KEY);
+  if(has){
+    const old=(prompt('ಪ್ರಸ್ತುತ Recovery Code ನಮೂದಿಸಿ:','')||'').trim();
+    if(!old) return;
+    if(!(await recoveryMatches(old))){
+      alert('ಪ್ರಸ್ತುತ Recovery Code ತಪ್ಪಾಗಿದೆ.');
+      return;
+    }
+  }
+
+  const r1=(prompt('ಹೊಸ Recovery Code ನಮೂದಿಸಿ (ಕನಿಷ್ಠ 6 ಅಕ್ಷರ/ಅಂಕಗಳು):','')||'').trim();
+  if(r1.length<6){
+    alert('Recovery Code ಕನಿಷ್ಠ 6 ಅಕ್ಷರ/ಅಂಕಗಳಿರಬೇಕು.');
+    return;
+  }
+  if(r1===String(localStorage.getItem(ADMIN_PIN_KEY)||'')){
+    alert('Recovery Code ಮತ್ತು Master PIN ಒಂದೇ ಆಗಬಾರದು.');
+    return;
+  }
+  const r2=(prompt('Recovery Code ಮತ್ತೆ ನಮೂದಿಸಿ / Confirm:','')||'').trim();
+  if(r1!==r2){
+    alert('Recovery Code ಹೊಂದಿಕೆಯಾಗಲಿಲ್ಲ.');
+    return;
+  }
+
+  await saveRecovery(r1);
+  alert('✅ Recovery Code ಸುರಕ್ಷಿತವಾಗಿ update ಆಗಿದೆ.');
+};
+
+/* Clear recovery inputs each time the gate opens. */
+const oldOpen=window.v110OpenAdminGate;
+if(typeof oldOpen==='function'){
+  window.v110OpenAdminGate=function(){
+    const r=oldOpen.apply(this,arguments);
+    try{
+      if(el('v180RecoveryCode')) el('v180RecoveryCode').value='';
+      if(el('v180RecoveryConfirm')) el('v180RecoveryConfirm').value='';
+    }catch(e){}
+    return r;
+  };
+  try{v110OpenAdminGate=window.v110OpenAdminGate}catch(e){}
+}
+
+/* Helpful migration status inside authenticated admin:
+   existing PIN without a recovery code can add one safely. */
+function updateRecoveryButton(){
+  const b=el('v180RecoveryAdminBtn');
+  if(!b) return;
+  b.textContent=localStorage.getItem(RECOVERY_HASH_KEY)
+    ? '🧩 Change Recovery Code'
+    : '🧩 Set Recovery Code';
+}
+
+const oldLogin=window.v110AdminLogin;
+if(typeof oldLogin==='function'){
+  window.v110AdminLogin=function(){
+    const r=oldLogin.apply(this,arguments);
+    setTimeout(updateRecoveryButton,50);
+    return r;
+  };
+  try{v110AdminLogin=window.v110AdminLogin}catch(e){}
+}
+
+setTimeout(updateRecoveryButton,500);
 })();
 </script>
