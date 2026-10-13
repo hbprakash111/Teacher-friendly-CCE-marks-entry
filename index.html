@@ -13450,3 +13450,118 @@ if(window.MutationObserver){
 setTimeout(addHeadPinButtons,500);
 })();
 </script>
+
+
+<!-- =========================================================
+ v179 GITHUB FIRST-TIME OWNER SETUP
+ - Fixes first-run bootstrap on a fresh GitHub Pages origin.
+ - If no school accounts exist yet, Preview Mode shows a temporary
+   "Owner / Master Admin First Setup" button.
+ - After at least one school account is created, the temporary button
+   automatically disappears.
+ - Ordinary schools still do NOT see Owner / Master Admin access.
+========================================================== -->
+<style id="v179BootstrapStyle">
+#v179OwnerBootstrap{
+  margin:10px 0 0;
+  padding:10px 12px;
+  border:1px dashed #9bb7d7;
+  border-radius:9px;
+  background:#f7fbff;
+  text-align:center;
+}
+#v179OwnerBootstrap .v179-note{
+  font-size:11px;color:#64748b;margin-bottom:7px;line-height:1.4
+}
+#v179OwnerBootstrap button{
+  border:0;border-radius:8px;padding:8px 12px;
+  background:#273a78;color:#fff;font-weight:800;cursor:pointer
+}
+</style>
+
+<script id="v179BootstrapScript">
+(function(){
+'use strict';
+
+const STORE='TFCCE_V110_SCHOOLS';
+
+function schools(){
+  try{
+    const a=JSON.parse(localStorage.getItem(STORE)||'[]');
+    return Array.isArray(a)?a:[];
+  }catch(e){ return []; }
+}
+
+function openOwnerSetup(){
+  if(typeof window.v110OpenAdminGate==='function'){
+    window.v110OpenAdminGate();
+  }else{
+    alert('Master Admin setup is not available.');
+  }
+}
+
+function install(){
+  const existing=document.getElementById('v179OwnerBootstrap');
+  const count=schools().length;
+
+  if(count>0){
+    if(existing) existing.remove();
+    return;
+  }
+
+  if(existing) return;
+
+  /* Fresh hosted/browser origin: add bootstrap only in Preview Mode. */
+  const preview=document.querySelector('.preview-mode, #previewMode, [class*="preview"]');
+  const dashboard=document.getElementById('dashboard');
+  const host=preview || dashboard;
+  if(!host) return;
+
+  const box=document.createElement('div');
+  box.id='v179OwnerBootstrap';
+  box.innerHTML=
+    '<div class="v179-note">First-time setup only / ಮೊದಲ ಬಾರಿಗೆ ಮಾತ್ರ: GitHub Pagesನಲ್ಲಿ ಇನ್ನೂ ಯಾವುದೇ school account ಇಲ್ಲ.</div>'+
+    '<button type="button">🛡️ Owner / Master Admin First Setup</button>';
+
+  box.querySelector('button').onclick=openOwnerSetup;
+
+  /* Prefer placing near the existing preview/login controls. */
+  const loginBtn=document.getElementById('v110SchoolLoginBtn') ||
+                 Array.from(host.querySelectorAll('button')).find(b=>
+                   /School Login/i.test(b.textContent||'')
+                 );
+  if(loginBtn && loginBtn.parentElement){
+    loginBtn.parentElement.insertAdjacentElement('afterend',box);
+  }else{
+    host.prepend(box);
+  }
+}
+
+function refresh(){
+  install();
+}
+
+/* After admin creates a school, remove bootstrap immediately. */
+const oldSave=window.v110SaveSchool;
+if(typeof oldSave==='function'){
+  window.v110SaveSchool=function(){
+    const r=oldSave.apply(this,arguments);
+    setTimeout(refresh,50);
+    return r;
+  };
+  try{v110SaveSchool=window.v110SaveSchool}catch(e){}
+}
+
+if(window.MutationObserver){
+  try{
+    new MutationObserver(refresh).observe(document.body,{childList:true,subtree:true});
+  }catch(e){}
+}
+
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded',()=>setTimeout(refresh,500));
+}else{
+  setTimeout(refresh,500);
+}
+})();
+</script>
