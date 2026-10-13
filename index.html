@@ -6965,11 +6965,17 @@ function saveTech(url,key){
   return cfg;
 }
 function headers(key,extra){
-  return Object.assign({
-    apikey:key,
-    Authorization:'Bearer '+key,
+  const k=String(key||'').trim();
+  const h={
+    apikey:k,
     'Content-Type':'application/json'
-  },extra||{});
+  };
+  // New Supabase sb_publishable_* keys are opaque API keys, not JWTs.
+  // Only legacy anon JWT keys (eyJ...) should also be sent as Bearer tokens.
+  if(k.startsWith('eyJ')){
+    h.Authorization='Bearer '+k;
+  }
+  return Object.assign(h,extra||{});
 }
 function setSyncMessage(text,ok){
   const el=$('syncMessage');
@@ -13797,3 +13803,8 @@ if(typeof oldLogin==='function'){
 setTimeout(updateRecoveryButton,500);
 })();
 </script>
+
+
+<!-- v181: Supabase publishable-key compatibility fix.
+     sb_publishable_* is now sent only in the apikey header.
+     Authorization: Bearer is retained only for legacy JWT-style anon keys. -->
