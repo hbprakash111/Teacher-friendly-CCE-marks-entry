@@ -15194,3 +15194,287 @@ setInterval(function(){try{ensurePill()}catch(e){}},2500);
 })();
 </script>
 
+
+<!-- v188: Pending Sync Reconciliation Fix
+     Purpose:
+     - If local school data and secure cloud payload are actually identical,
+       clear a stale "Pending Sync: 1" marker automatically.
+     - Never clears pending state when local data differs from cloud.
+     - Rechecks after successful sync and on startup.
+-->
+<script id="v188PendingSyncReconcile">
+(function(){
+'use strict';
+
+window.TFCCE_VERSION='v188';
+
+const TECH_KEY='TFCCE_MASTER_SUPABASE_CONFIG_V1';
+const SCHOOL_STORE='TFCCE_V110_SCHOOLS';
+const SESSION='TFCCE_V110_SCHOOL_SESSION';
+const SESSION_SECRET='TFCCE_V182_CLOUD_SECRET';
+const QUEUE_DB='TFCCE_SYNC_QUEUE_DB_V1';
+const QUEUE_STORE='queue';
+const FALLBACK_PENDING_PREFIX='TFCCE_PENDING_SYNC_';
+const DEFAULT_URL='https://ksbqlqheunwqdybeetjg.supabase.co';
+const DEFAULT_KEY='sb_publishable_okeyyRTgyfc-Hx9c1frZsA_uK30BsOm';
+
+let qdb=null;
+let reconcileBusy=false;
+
+function normU(v){
+  return String(v||'')
+    .replace(/[０-９]/g,function(ch){return String.fromCharCode(ch.charCodeAt(0)-0xFEE0)})
+    .replace(/[\s\-]/g,'')
+    .trim();
+}
+function normBase(url){
+  return String(url||'').trim().replace(/\/+$/,'').replace(/\/rest\/v1$/,'');
+}
+function currentUdise(){
+  try{return normU(sessionStorage.getItem(SESSION)||window.db?.school?.udise||'')}
+  catch(e){return ''}
+}
+function tech(){
+  try{
+    const x=JSON.parse(localStorage.getItem(TECH_KEY)||'null');
+    if(x&&x.url&&x.key)return {url:normBase(x.url),key:String(x.key).trim()};
+  }catch(e){}
+  try{
+    const u=normBase(window.db?.supabase?.url||'');
+    const k=String(window.db?.supabase?.key||'').trim();
+    if(u&&k)return {url:u,key:k};
+  }catch(e){}
+  return {url:DEFAULT_URL,key:DEFAULT_KEY};
+}
+function headers(apiKey,extra){
+  const k=String(apiKey||'').trim();
+  const h={apikey:k,'Content-Type':'application/json'};
+  if(k.startsWith('eyJ'))h.Authorization='Bearer '+k;
+  return Object.assign(h,extra||{});
+}
+function accounts(){
+  try{
+    const a=JSON.parse(localStorage.getItem(SCHOOL_STORE)||'[]');
+    return Array.isArray(a)?a:[];
+  }catch(e){return[]}
+}
+function account(u){
+  const n=normU(u);
+  return accounts().find(function(x){return normU(x.udise)===n})||null;
+}
+function textBytes(s){return new TextEncoder().encode(String(s||''))}
+function hex(buf){
+  return Array.from(new Uint8Array(buf))
+    .map(function(b){return b.toString(16).padStart(2,'0')})
+    .join('');
+}
+async function deriveSchoolSecret(u,password){
+  const base=await crypto.subtle.importKey('raw',textBytes(password),'PBKDF2',false,['deriveBits']);
+  const bits=await crypto.subtle.deriveBits({
+    name:'PBKDF2',
+    salt:textBytes('TFCCE|SCHOOL|'+normU(u)),
+    iterations:120000,
+    hash:'SHA-256'
+  },base,256);
+  return hex(bits);
+}
+function sessionSecret(u){
+  try{
+    const x=JSON.parse(sessionStorage.getItem(SESSION_SECRET)||'null');
+    if(x&&normU(x.udise)===normU(u)&&x.secret)return String(x.secret);
+  }catch(e){}
+  return '';
+}
+async function secretFor(u){
+  const s=sessionSecret(u);
+  if(s)return s;
+  const a=account(u);
+  const p=String(a?.password||'').trim();
+  if(!p)return '';
+  return await deriveSchoolSecret(u,p);
+}
+async function fetchCloudRow(u,secret){
+  const cfg=tech();
+  const id='school_'+normU(u);
+  const q=cfg.url+'/rest/v1/cce_app_data?id=eq.'+encodeURIComponent(id)+
+    '&select=id,payload,updated_at';
+  const r=await fetch(q,{
+    method:'GET',
+    cache:'no-store',
+    headers:headers(cfg.key,{'x-school-sync-key':secret})
+  });
+  if(!r.ok)throw new Error(await r.text());
+  const rows=await r.json();
+  return Array.isArray(rows)&&rows.length?rows[0]:null;
+}
+
+function cleanData(obj,u){
+  let d;
+  try{d=JSON.parse(JSON.stringify(obj||{}))}catch(e){d={}}
+  delete d._cloudAccess;
+
+  d.school=d.school||{};
+  d.school.udise=normU(d.school.udise||u);
+
+  /* Technical setup is device/admin configuration rather than school academic data.
+     It must not create a false "local change" mismatch. */
+  delete d.supabase;
+
+  return d;
+}
+function stable(value){
+  if(value===null || typeof value!=='object')return JSON.stringify(value);
+  if(Array.isArray(value))return '['+value.map(stable).join(',')+']';
+  const keys=Object.keys(value).sort();
+  return '{'+keys.map(function(k){return JSON.stringify(k)+':'+stable(value[k])}).join(',')+'}';
+}
+function sameAcademicData(a,b,u){
+  return stable(cleanData(a,u))===stable(cleanData(b,u));
+}
+
+function openQueueDb(){
+  return new Promise(function(resolve,reject){
+    if(qdb)return resolve(qdb);
+    if(!('indexedDB' in window))return reject(new Error('IndexedDB unavailable'));
+    const req=indexedDB.open(QUEUE_DB,1);
+    req.onsuccess=function(){qdb=req.result;resolve(qdb)};
+    req.onerror=function(){reject(req.error)};
+    req.onupgradeneeded=function(){
+      const d=req.result;
+      if(!d.objectStoreNames.contains(QUEUE_STORE)){
+        const st=d.createObjectStore(QUEUE_STORE,{keyPath:'id',autoIncrement:true});
+        st.createIndex('udise','udise',{unique:false});
+        st.createIndex('createdAt','createdAt',{unique:false});
+        st.createIndex('status','status',{unique:false});
+      }
+    };
+  });
+}
+async function pendingRows(u){
+  try{
+    const d=await openQueueDb();
+    return await new Promise(function(resolve){
+      const tx=d.transaction(QUEUE_STORE,'readonly');
+      const req=tx.objectStore(QUEUE_STORE).index('udise').getAll(IDBKeyRange.only(normU(u)));
+      req.onsuccess=function(){
+        resolve((req.result||[]).filter(function(r){return r.status==='pending'}));
+      };
+      req.onerror=function(){resolve([])};
+    });
+  }catch(e){return[]}
+}
+async function clearPending(u){
+  try{
+    const rows=await pendingRows(u);
+    if(rows.length){
+      const d=await openQueueDb();
+      await new Promise(function(resolve,reject){
+        const tx=d.transaction(QUEUE_STORE,'readwrite');
+        const st=tx.objectStore(QUEUE_STORE);
+        rows.forEach(function(r){st.delete(r.id)});
+        tx.oncomplete=resolve;
+        tx.onerror=function(){reject(tx.error)};
+      });
+    }
+  }catch(e){}
+
+  try{localStorage.removeItem(FALLBACK_PENDING_PREFIX+normU(u))}catch(e){}
+
+  const b=document.getElementById('v129PendingBadge');
+  const t=document.getElementById('v129SyncText');
+  const c=document.getElementById('v130Pending');
+  if(b){b.textContent='0';b.className='zero'}
+  if(t)t.textContent='No pending changes';
+  if(c)c.textContent='0';
+
+  const p=document.getElementById('v187SmartCloudPill');
+  if(p){
+    p.textContent='☁ Smart Cloud: Up to date';
+    p.className='ok';
+  }
+}
+async function hasPending(u){
+  const rows=await pendingRows(u);
+  if(rows.length)return true;
+  try{return !!localStorage.getItem(FALLBACK_PENDING_PREFIX+normU(u))}
+  catch(e){return false}
+}
+
+window.v188ReconcilePending=async function(){
+  if(reconcileBusy)return false;
+  const u=currentUdise();
+  if(!u || !navigator.onLine)return false;
+  if(!(await hasPending(u)))return true;
+
+  reconcileBusy=true;
+  try{
+    const secret=await secretFor(u);
+    if(!secret)return false;
+
+    const row=await fetchCloudRow(u,secret);
+    if(!row || !row.payload)return false;
+
+    const localObj=(typeof window.db!=='undefined' && window.db)?window.db:{};
+    if(sameAcademicData(localObj,row.payload,u)){
+      await clearPending(u);
+      return true;
+    }
+
+    const p=document.getElementById('v187SmartCloudPill');
+    if(p){
+      p.textContent='☁ Smart Cloud: Local changes pending';
+      p.className='warn';
+    }
+    return false;
+  }catch(e){
+    console.warn('v188 pending reconcile',e);
+    return false;
+  }finally{
+    reconcileBusy=false;
+  }
+};
+
+/* Reconcile after either sync button completes. */
+const priorSecure=window.v131SyncCurrentSchool;
+if(typeof priorSecure==='function'){
+  window.v131SyncCurrentSchool=async function(){
+    const ret=await priorSecure.apply(this,arguments);
+    setTimeout(function(){window.v188ReconcilePending()},350);
+    setTimeout(function(){window.v188ReconcilePending()},1400);
+    return ret;
+  };
+}
+
+const priorTestSync=window.syncSupabase;
+if(typeof priorTestSync==='function'){
+  window.syncSupabase=async function(){
+    const ret=await priorTestSync.apply(this,arguments);
+    setTimeout(function(){window.v188ReconcilePending()},350);
+    setTimeout(function(){window.v188ReconcilePending()},1400);
+    return ret;
+  };
+}
+
+/* Startup reconciliation fixes stale "Pending Sync: 1" from old queue entries,
+   but only if secure cloud data exactly matches current local academic data. */
+function init(){
+  setTimeout(function(){window.v188ReconcilePending()},2200);
+  setTimeout(function(){window.v188ReconcilePending()},5200);
+}
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded',init);
+}else{
+  init();
+}
+window.addEventListener('online',function(){
+  setTimeout(function(){window.v188ReconcilePending()},1200);
+});
+document.addEventListener('visibilitychange',function(){
+  if(document.visibilityState==='visible'){
+    setTimeout(function(){window.v188ReconcilePending()},900);
+  }
+});
+
+})();
+</script>
+
