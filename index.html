@@ -15478,3 +15478,90 @@ document.addEventListener('visibilitychange',function(){
 })();
 </script>
 
+
+<!-- v189: No-False-Pending Save Guard
+     Fixes the remaining "Pending Sync: 1" false marker.
+     Some render-only functions call saveData() even when db has not changed.
+     This guard skips no-op saves, so the offline sync queue is created only
+     when actual school data changed.
+-->
+<script id="v189NoFalsePendingSaveGuard">
+(function(){
+'use strict';
+
+window.TFCCE_VERSION='v189';
+
+const SESSION='TFCCE_V110_SCHOOL_SESSION';
+const LOCAL_PREFIX='TFCCE_SCHOOL_DB_V1_';
+
+function normU(v){
+  return String(v||'')
+    .replace(/[０-９]/g,function(ch){return String.fromCharCode(ch.charCodeAt(0)-0xFEE0)})
+    .replace(/[\s\-]/g,'')
+    .trim();
+}
+function currentUdise(){
+  try{return normU(sessionStorage.getItem(SESSION)||window.db?.school?.udise||'')}
+  catch(e){return ''}
+}
+function currentSerialized(u){
+  try{
+    if(!window.db || typeof window.db!=='object')return '';
+    const copy=JSON.parse(JSON.stringify(window.db));
+    copy.school=copy.school||{};
+    copy.school.udise=normU(copy.school.udise||u);
+    return JSON.stringify(copy);
+  }catch(e){
+    try{return JSON.stringify(window.db||{})}catch(e2){return ''}
+  }
+}
+function storedSerialized(u){
+  try{return localStorage.getItem(LOCAL_PREFIX+normU(u))||''}
+  catch(e){return ''}
+}
+
+/* Last wrapper wins:
+   - actual data change -> use the normal v118/v128/v129 save path
+   - no change -> do NOT create a backup or pending sync row
+*/
+const previousSave=window.saveData;
+if(typeof previousSave==='function'){
+  window.saveData=saveData=function(){
+    const u=currentUdise();
+    if(u){
+      const before=storedSerialized(u);
+      const now=currentSerialized(u);
+      if(before && now && before===now){
+        return true;
+      }
+    }
+    return previousSave.apply(this,arguments);
+  };
+}
+
+/* Reconcile any old false pending marker after startup.
+   v188 only clears it if local and secure cloud academic data match. */
+function reconcile(){
+  try{
+    if(typeof window.v188ReconcilePending==='function'){
+      window.v188ReconcilePending();
+    }
+  }catch(e){}
+}
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded',function(){
+    setTimeout(reconcile,2600);
+    setTimeout(reconcile,6000);
+  });
+}else{
+  setTimeout(reconcile,2600);
+  setTimeout(reconcile,6000);
+}
+window.addEventListener('online',function(){setTimeout(reconcile,1400)});
+document.addEventListener('visibilitychange',function(){
+  if(document.visibilityState==='visible')setTimeout(reconcile,1000);
+});
+
+})();
+</script>
+
