@@ -14787,3 +14787,410 @@ setInterval(function(){try{addCleanupButton()}catch(e){}},2500);
 })();
 </script>
 
+
+<!-- v187: Automatic Smart Cloud Load
+     - On a logged-in school, automatically checks the latest secure cloud copy.
+     - Pulls cloud data only when there are NO newer unsynced local changes.
+     - Clears stale Pending Sync queue entries after a successful manual secure sync.
+     - Rechecks when internet returns / tab becomes active.
+     - Manual Force Reload Cloud remains available only as a recovery tool. -->
+<style id="v187SmartCloudStyle">
+#v187SmartCloudPill{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  padding:4px 8px;
+  background:#fff;
+  border:1px solid #e5ebf2;
+  border-radius:999px;
+  font-size:12px;
+  color:#43536a;
+}
+#v187SmartCloudPill.ok{border-color:#b9e2c8;color:#17683a;background:#f3fff7}
+#v187SmartCloudPill.warn{border-color:#f2d28b;color:#7a5700;background:#fffaf0}
+#v187SmartCloudPill.bad{border-color:#efb8b8;color:#9b1c1c;background:#fff6f6}
+</style>
+
+<script id="v187SmartCloudAutoLoad">
+(function(){
+'use strict';
+
+window.TFCCE_VERSION='v187';
+
+const TECH_KEY='TFCCE_MASTER_SUPABASE_CONFIG_V1';
+const SCHOOL_STORE='TFCCE_V110_SCHOOLS';
+const SESSION='TFCCE_V110_SCHOOL_SESSION';
+const LOCAL_PREFIX='TFCCE_SCHOOL_DB_V1_';
+const SESSION_SECRET='TFCCE_V182_CLOUD_SECRET';
+const LAST_SYNC_PREFIX='TFCCE_V182_CLOUD_LAST_SYNC_';
+const OLD_LAST_SYNC_PREFIX='TFCCE_CLOUD_LAST_SYNC_';
+const QUEUE_DB='TFCCE_SYNC_QUEUE_DB_V1';
+const QUEUE_STORE='queue';
+const FALLBACK_PENDING_PREFIX='TFCCE_PENDING_SYNC_';
+const DEFAULT_URL='https://ksbqlqheunwqdybeetjg.supabase.co';
+const DEFAULT_KEY='sb_publishable_okeyyRTgyfc-Hx9c1frZsA_uK30BsOm';
+
+let lastSmartCheck=0;
+let smartBusy=false;
+let qdb=null;
+
+function normU(v){
+  return String(v||'')
+    .replace(/[０-９]/g,function(ch){return String.fromCharCode(ch.charCodeAt(0)-0xFEE0)})
+    .replace(/[\s\-]/g,'')
+    .trim();
+}
+function normBase(url){
+  return String(url||'').trim().replace(/\/+$/,'').replace(/\/rest\/v1$/,'');
+}
+function currentUdise(){
+  try{return normU(sessionStorage.getItem(SESSION)||window.db?.school?.udise||'')}
+  catch(e){return ''}
+}
+function epoch(v){
+  const n=Date.parse(String(v||''));
+  return Number.isFinite(n)?n:0;
+}
+function latestSyncEpoch(u){
+  let a=0,b=0;
+  try{a=epoch(localStorage.getItem(LAST_SYNC_PREFIX+u))}catch(e){}
+  try{b=epoch(localStorage.getItem(OLD_LAST_SYNC_PREFIX+u))}catch(e){}
+  return Math.max(a,b);
+}
+function tech(){
+  try{
+    const x=JSON.parse(localStorage.getItem(TECH_KEY)||'null');
+    if(x&&x.url&&x.key)return {url:normBase(x.url),key:String(x.key).trim()};
+  }catch(e){}
+  try{
+    const u=normBase(window.db?.supabase?.url||'');
+    const k=String(window.db?.supabase?.key||'').trim();
+    if(u&&k)return {url:u,key:k};
+  }catch(e){}
+  return {url:DEFAULT_URL,key:DEFAULT_KEY};
+}
+function headers(apiKey,extra){
+  const k=String(apiKey||'').trim();
+  const h={apikey:k,'Content-Type':'application/json'};
+  if(k.startsWith('eyJ'))h.Authorization='Bearer '+k;
+  return Object.assign(h,extra||{});
+}
+function accounts(){
+  try{
+    const a=JSON.parse(localStorage.getItem(SCHOOL_STORE)||'[]');
+    return Array.isArray(a)?a:[];
+  }catch(e){return[]}
+}
+function account(u){
+  const n=normU(u);
+  return accounts().find(function(x){return normU(x.udise)===n})||null;
+}
+function textBytes(s){return new TextEncoder().encode(String(s||''))}
+function hex(buf){
+  return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0')}).join('');
+}
+async function deriveSchoolSecret(u,password){
+  const base=await crypto.subtle.importKey('raw',textBytes(password),'PBKDF2',false,['deriveBits']);
+  const bits=await crypto.subtle.deriveBits({
+    name:'PBKDF2',
+    salt:textBytes('TFCCE|SCHOOL|'+normU(u)),
+    iterations:120000,
+    hash:'SHA-256'
+  },base,256);
+  return hex(bits);
+}
+function sessionSecret(u){
+  try{
+    const x=JSON.parse(sessionStorage.getItem(SESSION_SECRET)||'null');
+    if(x&&normU(x.udise)===normU(u)&&x.secret)return String(x.secret);
+  }catch(e){}
+  return '';
+}
+async function secretFor(u){
+  const s=sessionSecret(u);
+  if(s)return s;
+  const a=account(u);
+  const p=String(a?.password||'').trim();
+  if(!p)return '';
+  const d=await deriveSchoolSecret(u,p);
+  try{sessionStorage.setItem(SESSION_SECRET,JSON.stringify({udise:normU(u),secret:d}))}catch(e){}
+  return d;
+}
+function safeDbFromPayload(payload,u){
+  let d;
+  try{d=JSON.parse(JSON.stringify(payload||{}))}catch(e){d={}}
+  const meta=d._cloudAccess||{};
+  delete d._cloudAccess;
+  d.school=d.school||{};
+  d.school.udise=normU(u);
+  if(!d.school.name && meta.name)d.school.name=meta.name;
+  if(!d.school.registeredMobile && meta.mobile)d.school.registeredMobile=meta.mobile;
+  return d;
+}
+async function fetchCloudRow(u,secret){
+  const cfg=tech();
+  const id='school_'+normU(u);
+  const q=cfg.url+'/rest/v1/cce_app_data?id=eq.'+encodeURIComponent(id)+
+    '&select=id,school_name,udise,academic_year,payload,updated_at';
+  const r=await fetch(q,{
+    method:'GET',
+    cache:'no-store',
+    headers:headers(cfg.key,{'x-school-sync-key':secret})
+  });
+  if(!r.ok)throw new Error(await r.text());
+  const rows=await r.json();
+  return Array.isArray(rows)&&rows.length?rows[0]:null;
+}
+
+function openQueueDb(){
+  return new Promise(function(resolve,reject){
+    if(qdb)return resolve(qdb);
+    if(!('indexedDB' in window))return reject(new Error('IndexedDB unavailable'));
+    const req=indexedDB.open(QUEUE_DB,1);
+    req.onsuccess=function(){qdb=req.result;resolve(qdb)};
+    req.onerror=function(){reject(req.error)};
+    req.onupgradeneeded=function(){
+      const d=req.result;
+      if(!d.objectStoreNames.contains(QUEUE_STORE)){
+        const st=d.createObjectStore(QUEUE_STORE,{keyPath:'id',autoIncrement:true});
+        st.createIndex('udise','udise',{unique:false});
+        st.createIndex('createdAt','createdAt',{unique:false});
+        st.createIndex('status','status',{unique:false});
+      }
+    };
+  });
+}
+
+async function queueRows(u){
+  try{
+    const d=await openQueueDb();
+    return await new Promise(function(resolve){
+      const tx=d.transaction(QUEUE_STORE,'readonly');
+      const req=tx.objectStore(QUEUE_STORE).index('udise').getAll(IDBKeyRange.only(normU(u)));
+      req.onsuccess=function(){resolve((req.result||[]).filter(function(r){return r.status==='pending'}))};
+      req.onerror=function(){resolve([])};
+    });
+  }catch(e){return[]}
+}
+async function deleteQueueIds(ids){
+  if(!ids.length)return;
+  try{
+    const d=await openQueueDb();
+    await new Promise(function(resolve,reject){
+      const tx=d.transaction(QUEUE_STORE,'readwrite');
+      const st=tx.objectStore(QUEUE_STORE);
+      ids.forEach(function(id){st.delete(id)});
+      tx.oncomplete=resolve;
+      tx.onerror=function(){reject(tx.error)};
+    });
+  }catch(e){}
+}
+function refreshPendingUi(n){
+  const b=document.getElementById('v129PendingBadge');
+  const t=document.getElementById('v129SyncText');
+  const c=document.getElementById('v130Pending');
+  if(b){
+    b.textContent=String(n);
+    b.className=n===0?'zero':'';
+  }
+  if(t)t.textContent=n===0?'No pending changes':(n+' change set waiting for cloud sync');
+  if(c)c.textContent=String(n);
+}
+async function livePendingCount(u){
+  const last=latestSyncEpoch(u);
+  const rows=await queueRows(u);
+  const stale=rows.filter(function(r){return last && epoch(r.createdAt)<=last});
+  if(stale.length)await deleteQueueIds(stale.map(function(r){return r.id}));
+
+  const live=rows.filter(function(r){return !(last && epoch(r.createdAt)<=last)});
+
+  let fallbackLive=0;
+  try{
+    const k=FALLBACK_PENDING_PREFIX+normU(u);
+    const raw=localStorage.getItem(k);
+    if(raw){
+      let rec=null;
+      try{rec=JSON.parse(raw)}catch(e){}
+      if(rec && last && epoch(rec.createdAt)<=last){
+        localStorage.removeItem(k);
+      }else{
+        fallbackLive=1;
+      }
+    }
+  }catch(e){}
+
+  const n=Math.max(live.length,fallbackLive);
+  refreshPendingUi(n);
+  return n;
+}
+async function clearAllPending(u){
+  const rows=await queueRows(u);
+  if(rows.length)await deleteQueueIds(rows.map(function(r){return r.id}));
+  try{localStorage.removeItem(FALLBACK_PENDING_PREFIX+normU(u))}catch(e){}
+  refreshPendingUi(0);
+}
+
+function ensurePill(){
+  let p=document.getElementById('v187SmartCloudPill');
+  if(p)return p;
+  const wrap=document.getElementById('v130StatusWrap');
+  if(!wrap)return null;
+  p=document.createElement('span');
+  p.id='v187SmartCloudPill';
+  p.textContent='☁ Smart Cloud: Ready';
+  wrap.appendChild(p);
+  return p;
+}
+function setPill(text,state){
+  const p=ensurePill();
+  if(!p)return;
+  p.textContent=text;
+  p.className=state||'';
+}
+function setSyncMessage(text,ok){
+  const el=document.getElementById('syncMessage');
+  if(el){
+    el.textContent=text;
+    if(ok===true)el.style.color='#198754';
+    if(ok===false)el.style.color='#c62828';
+  }
+  const s=document.getElementById('v182CloudStatus');
+  if(s)s.textContent=text;
+}
+
+async function smartCloudLoad(reason){
+  if(smartBusy)return false;
+  const u=currentUdise();
+  if(!u)return false;
+  if(!navigator.onLine){
+    setPill('☁ Smart Cloud: Offline','warn');
+    return false;
+  }
+
+  smartBusy=true;
+  lastSmartCheck=Date.now();
+  setPill('☁ Smart Cloud: Checking…','');
+
+  try{
+    const pending=await livePendingCount(u);
+    if(pending>0){
+      setPill('☁ Smart Cloud: Local changes pending','warn');
+      return false;
+    }
+
+    const secret=await secretFor(u);
+    if(!secret){
+      setPill('☁ Smart Cloud: Login needed','warn');
+      return false;
+    }
+
+    const row=await fetchCloudRow(u,secret);
+    if(!row){
+      setPill('☁ Smart Cloud: No cloud copy','warn');
+      return false;
+    }
+
+    const cloudTime=epoch(row.updated_at);
+    const localTime=latestSyncEpoch(u);
+    const localKey=LOCAL_PREFIX+u;
+    const hasLocal=!!localStorage.getItem(localKey);
+
+    if(hasLocal && localTime && cloudTime<=localTime){
+      setPill('☁ Smart Cloud: Up to date','ok');
+      return true;
+    }
+
+    const incoming=safeDbFromPayload(row.payload,u);
+    localStorage.setItem(localKey,JSON.stringify(incoming));
+    localStorage.setItem(LAST_SYNC_PREFIX+u,String(row.updated_at||new Date().toISOString()));
+    await clearAllPending(u);
+
+    try{window.db=incoming}catch(e){}
+    setPill('☁ Smart Cloud: Updated','ok');
+    setSyncMessage('✅ Latest cloud data ಸ್ವಯಂ load ಆಗಿದೆ.',true);
+
+    const guard='TFCCE_V187_RELOAD_GUARD_'+u;
+    const stamp=String(row.updated_at||'');
+    let old='';
+    try{old=sessionStorage.getItem(guard)||''}catch(e){}
+    if(old!==stamp){
+      try{sessionStorage.setItem(guard,stamp)}catch(e){}
+      setTimeout(function(){location.reload()},350);
+    }
+    return true;
+  }catch(e){
+    console.warn('v187 smart cloud load',e);
+    setPill('☁ Smart Cloud: Check failed','bad');
+    return false;
+  }finally{
+    smartBusy=false;
+  }
+}
+
+window.v187SmartCloudLoad=function(){return smartCloudLoad('manual')};
+
+/* Clear old queue entries after a successful secure sync. */
+const oldSecureSync=window.v131SyncCurrentSchool;
+if(typeof oldSecureSync==='function'){
+  window.v131SyncCurrentSchool=async function(){
+    const u=currentUdise();
+    const before=latestSyncEpoch(u);
+    const ok=await oldSecureSync.apply(this,arguments);
+    const after=latestSyncEpoch(u);
+    if(ok===true || after>before){
+      await clearAllPending(u);
+      setPill('☁ Smart Cloud: Synced','ok');
+    }
+    return ok;
+  };
+}
+
+const oldTestSync=window.syncSupabase;
+if(typeof oldTestSync==='function'){
+  window.syncSupabase=async function(){
+    const u=currentUdise();
+    const before=latestSyncEpoch(u);
+    const ret=await oldTestSync.apply(this,arguments);
+    const after=latestSyncEpoch(u);
+    if(u && after>before){
+      await clearAllPending(u);
+      setPill('☁ Smart Cloud: Synced','ok');
+    }
+    return ret;
+  };
+}
+
+/* Startup / reconnect / tab-return checks. */
+function scheduleCheck(delay,reason){
+  setTimeout(function(){smartCloudLoad(reason)},delay);
+}
+function init(){
+  ensurePill();
+  const u=currentUdise();
+  if(u)scheduleCheck(1800,'startup');
+}
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded',function(){setTimeout(init,900)});
+}else{
+  setTimeout(init,900);
+}
+window.addEventListener('load',function(){setTimeout(ensurePill,1200)});
+window.addEventListener('online',function(){
+  setPill('☁ Smart Cloud: Reconnecting…','');
+  scheduleCheck(900,'online');
+});
+window.addEventListener('offline',function(){
+  setPill('☁ Smart Cloud: Offline','warn');
+});
+document.addEventListener('visibilitychange',function(){
+  if(document.visibilityState==='visible' && Date.now()-lastSmartCheck>30000){
+    smartCloudLoad('visible');
+  }
+});
+
+/* Keep the status pill present even if dashboard UI is rebuilt. */
+setInterval(function(){try{ensurePill()}catch(e){}},2500);
+
+})();
+</script>
+
