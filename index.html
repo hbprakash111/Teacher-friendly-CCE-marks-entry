@@ -14617,3 +14617,173 @@ setInterval(()=>{ try{ addCloudButton(); addBackupButton(); }catch(e){} },2500);
 })();
 </script>
 
+
+<!-- v186: Orphan Marks Cleanup + safer future Student Delete
+     1) Removes marks records whose student no longer exists in that Class/Section.
+     2) Future Student Delete also removes that student's marks in the same Class/Section.
+     3) Does not touch Former Students marksSnapshot / TC archive data. -->
+<style id="v186Style">
+#v186CleanupBtn{
+  margin-left:8px;
+  background:#b45309;
+  color:#fff;
+  border:none;
+  border-radius:7px;
+  padding:8px 12px;
+  font-weight:800;
+  cursor:pointer;
+}
+#v186CleanupBtn:hover{filter:brightness(.96)}
+</style>
+
+<script id="v186OrphanMarksCleanup">
+(function(){
+'use strict';
+
+window.TFCCE_VERSION='v186';
+
+function sectionObjects(){
+  const out=[];
+  try{
+    const classes=(typeof db!=='undefined' && db && db.classes) ? db.classes : {};
+    Object.keys(classes||{}).forEach(function(c){
+      const sections=classes[c]||{};
+      Object.keys(sections||{}).forEach(function(s){
+        const d=sections[s];
+        if(d && typeof d==='object') out.push({c:String(c),s:String(s),d:d});
+      });
+    });
+  }catch(e){}
+  return out;
+}
+
+window.v186CountOrphanMarks=function(){
+  let count=0;
+  sectionObjects().forEach(function(x){
+    const students=Array.isArray(x.d.students)?x.d.students:[];
+    const ids=new Set(students.map(function(st){return String(st && st.id || '')}).filter(Boolean));
+    const marks=(x.d.marks && typeof x.d.marks==='object')?x.d.marks:{};
+    Object.keys(marks).forEach(function(id){
+      if(!ids.has(String(id))) count++;
+    });
+  });
+  return count;
+};
+
+window.v186CleanupOrphanMarks=function(showMessage){
+  let removed=0;
+  sectionObjects().forEach(function(x){
+    const students=Array.isArray(x.d.students)?x.d.students:[];
+    const ids=new Set(students.map(function(st){return String(st && st.id || '')}).filter(Boolean));
+    if(!x.d.marks || typeof x.d.marks!=='object') return;
+
+    Object.keys(x.d.marks).forEach(function(id){
+      if(!ids.has(String(id))){
+        delete x.d.marks[id];
+        removed++;
+      }
+    });
+  });
+
+  if(removed>0){
+    try{ if(typeof saveData==='function') saveData(); }catch(e){}
+    try{ if(typeof renderMarks==='function') renderMarks(); }catch(e){}
+    try{ if(typeof renderReport==='function') renderReport(); }catch(e){}
+    try{ if(typeof renderSchoolConsolidated==='function') renderSchoolConsolidated(); }catch(e){}
+    try{
+      if(typeof v99RenderDashboard==='function') v99RenderDashboard();
+      else if(typeof updateDashboard==='function') updateDashboard();
+    }catch(e){}
+  }
+
+  if(showMessage!==false){
+    if(removed>0){
+      alert('✅ Orphan Marks Cleanup ಪೂರ್ಣಗೊಂಡಿದೆ.\n\nಅಳಿಸಿದ ಹಳೆಯ marks records: '+removed+'\n\nFormer Students / TC marksSnapshot dataಗೆ ಯಾವುದೇ ಬದಲಾವಣೆ ಮಾಡಿಲ್ಲ.');
+    }else{
+      alert('✅ Orphan Marks Cleanup ಪರಿಶೀಲನೆ ಪೂರ್ಣಗೊಂಡಿದೆ.\n\nಅಳಿಸಬೇಕಾದ orphan marks records ಇಲ್ಲ.');
+    }
+  }
+  return removed;
+};
+
+/* Safer future Student Delete:
+   preserve the existing confirmation/UI behavior, then remove marks if the
+   original delete function did not already remove them. */
+(function wrapDeleteStudent(){
+  const oldDelete=window.deleteStudent;
+  if(typeof oldDelete!=='function' || oldDelete.__v186Wrapped) return;
+
+  function wrappedDeleteStudent(id){
+    let c='',s='',beforeExists=false;
+    try{
+      c=String(document.getElementById('studentClass')?.value||'');
+      s=String(document.getElementById('studentSection')?.value||'');
+      const d=(typeof getClassSection==='function')?getClassSection(c,s):null;
+      beforeExists=!!(d && Array.isArray(d.students) && d.students.some(function(st){return String(st.id)===String(id)}));
+    }catch(e){}
+
+    const result=oldDelete.apply(this,arguments);
+
+    try{
+      const d=(typeof getClassSection==='function')?getClassSection(c,s):null;
+      const stillExists=!!(d && Array.isArray(d.students) && d.students.some(function(st){return String(st.id)===String(id)}));
+
+      /* Only remove marks when the student actually existed before and is now deleted.
+         If user pressed Cancel in the original confirmation, the student still exists
+         and marks are left untouched. */
+      if(beforeExists && !stillExists && d && d.marks && Object.prototype.hasOwnProperty.call(d.marks,id)){
+        delete d.marks[id];
+        if(typeof saveData==='function') saveData();
+      }
+    }catch(e){console.error('v186 delete cleanup',e)}
+
+    return result;
+  }
+  wrappedDeleteStudent.__v186Wrapped=true;
+  window.deleteStudent=wrappedDeleteStudent;
+})();
+
+function addCleanupButton(){
+  if(document.getElementById('v186CleanupBtn')) return;
+
+  const recovery=document.getElementById('v184RecoveryBtn');
+  const currentBackup=document.getElementById('v185CurrentBackupBtn');
+  const dash=document.getElementById('dashboard');
+  if(!dash) return;
+
+  const btn=document.createElement('button');
+  btn.id='v186CleanupBtn';
+  btn.type='button';
+  btn.textContent='🧹 Orphan Marks Cleanup';
+  btn.onclick=function(){
+    const n=window.v186CountOrphanMarks();
+    if(n>0){
+      if(!confirm('Student ಇಲ್ಲದ ಹಳೆಯ marks records ಕಂಡುಬಂದಿವೆ: '+n+
+        '\n\nಇವುಗಳನ್ನು clean ಮಾಡಬೇಕೇ?\n\nFormer Students / TC marksSnapshot data ಅಳಿಯುವುದಿಲ್ಲ.')) return;
+    }
+    window.v186CleanupOrphanMarks(true);
+  };
+
+  const anchor=currentBackup || recovery;
+  if(anchor && anchor.parentNode){
+    anchor.parentNode.insertBefore(btn,anchor.nextSibling);
+  }else{
+    dash.appendChild(btn);
+  }
+}
+
+function init(){
+  addCleanupButton();
+}
+
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded',function(){setTimeout(init,700)});
+}else{
+  setTimeout(init,700);
+}
+window.addEventListener('load',function(){setTimeout(init,900)});
+setInterval(function(){try{addCleanupButton()}catch(e){}},2500);
+
+})();
+</script>
+
