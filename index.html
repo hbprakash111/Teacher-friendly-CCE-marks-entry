@@ -14241,3 +14241,253 @@ else setTimeout(init,1200);
 </script>
 
 <!-- v183: v182 secure-cloud patch relocated safely to true file end. -->
+
+
+<!-- v184: Backup History Recovery Tool.
+     Read-only scan first. Lets the owner inspect rolling IndexedDB/local legacy backups
+     and restore a selected non-empty snapshot only after explicit confirmation. -->
+<style id="v184RecoveryStyles">
+#v184RecoveryModal{display:none;position:fixed;inset:0;background:#0009;z-index:120900;padding:18px;overflow:auto}
+#v184RecoveryBox{max-width:1180px;margin:auto;background:#fff;border-radius:14px;box-shadow:0 18px 50px #0006;overflow:hidden}
+#v184RecoveryHead{background:#5b2a86;color:#fff;padding:13px 16px;display:flex;justify-content:space-between;align-items:center;font-weight:800}
+#v184RecoveryBody{padding:14px}
+#v184RecoveryBody table{width:100%;border-collapse:collapse;font-size:12px}
+#v184RecoveryBody th,#v184RecoveryBody td{border:1px solid #d9e1ec;padding:7px;text-align:left;vertical-align:top}
+#v184RecoveryBody th{background:#f3ecfb}
+#v184RecoveryBody tr.v184-good{background:#effaf2}
+#v184RecoveryBody tr.v184-empty{background:#fff8e6}
+#v184RecoveryBody .v184-tag{display:inline-block;padding:2px 7px;border-radius:999px;font-size:11px;font-weight:800}
+#v184RecoveryBody .good{background:#dff3e6;color:#17683a}
+#v184RecoveryBody .empty{background:#fff0c2;color:#7a5700}
+#v184RecoveryBtn{margin-left:8px}
+</style>
+
+<div id="v184RecoveryModal" aria-hidden="true">
+  <div id="v184RecoveryBox">
+    <div id="v184RecoveryHead">
+      <span>🧰 Backup History Recovery / ಹಳೆಯ ಬ್ಯಾಕಪ್ ಮರುಪಡೆಯುವಿಕೆ</span>
+      <button type="button" class="btn danger" onclick="v184CloseRecovery()">✕ Close</button>
+    </div>
+    <div id="v184RecoveryBody"></div>
+  </div>
+</div>
+
+<script id="v184RecoveryScript">
+(function(){
+'use strict';
+const SESSION='TFCCE_V110_SCHOOL_SESSION';
+const SCHOOL_PREFIX='TFCCE_SCHOOL_DB_V1_';
+const IDB_NAME='TFCCE_AUTO_BACKUP_DB_V1';
+const IDB_STORE='snapshots';
+const $=id=>document.getElementById(id);
+
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function u(){return String(sessionStorage.getItem(SESSION)||'').trim();}
+function clone(x){return JSON.parse(JSON.stringify(x));}
+
+function stats(data){
+  let students=0, marks=0, former=0;
+  try{
+    const cs=data?.classes||{};
+    Object.keys(cs).forEach(c=>{
+      Object.keys(cs[c]||{}).forEach(s=>{
+        const r=cs[c][s]||{};
+        if(Array.isArray(r.students)) students += r.students.filter(st=>String(st?.status||'Active')!=='Transferred').length;
+        if(r.marks && typeof r.marks==='object') marks += Object.keys(r.marks).length;
+      });
+    });
+    if(Array.isArray(data?.formerStudents)) former=data.formerStudents.length;
+  }catch(e){}
+  return {students,marks,former,school:String(data?.school?.name||''),year:String(data?.school?.academicYear||'')};
+}
+
+function openIdb(){
+  return new Promise((resolve,reject)=>{
+    if(!('indexedDB' in window))return reject(new Error('IndexedDB unavailable'));
+    const req=indexedDB.open(IDB_NAME,1);
+    req.onsuccess=()=>resolve(req.result);
+    req.onerror=()=>reject(req.error);
+    req.onupgradeneeded=()=>{};
+  });
+}
+
+async function idbRows(){
+  const ud=u(); if(!ud)return [];
+  try{
+    const d=await openIdb();
+    return await new Promise((resolve,reject)=>{
+      if(!d.objectStoreNames.contains(IDB_STORE)){resolve([]);return}
+      const tx=d.transaction(IDB_STORE,'readonly');
+      const st=tx.objectStore(IDB_STORE);
+      const idx=st.index('udise');
+      const req=idx.getAll(IDBKeyRange.only(ud));
+      req.onsuccess=()=>resolve((req.result||[]).map(r=>({
+        source:'Rolling Backup',
+        createdAt:r.createdAt||'',
+        reason:r.reason||'autosave',
+        data:r.data,
+        idbId:r.id
+      })));
+      req.onerror=()=>reject(req.error);
+    });
+  }catch(e){return []}
+}
+
+function localRows(){
+  const ud=u(); const rows=[];
+  const keys=[
+    'TFCCE_AUTO_BACKUP_LATEST_'+ud,
+    SCHOOL_PREFIX+ud,
+    'CCE_APP_DATA_V4',
+    'teacherCCE_db',
+    'teacherCCE_v84_backup'
+  ];
+  keys.forEach(k=>{
+    try{
+      const raw=localStorage.getItem(k); if(!raw)return;
+      const x=JSON.parse(raw);
+      const data=(x&&x.data&&typeof x.data==='object')?x.data:x;
+      if(!data||typeof data!=='object')return;
+      const du=String(data?.school?.udise||data?.school?.dise||'').trim();
+      if(du && ud && du!==ud && !['CCE_APP_DATA_V4','teacherCCE_db','teacherCCE_v84_backup'].includes(k))return;
+      rows.push({
+        source:k===SCHOOL_PREFIX+ud?'Current School Store':
+               k.startsWith('TFCCE_AUTO_BACKUP_LATEST_')?'Latest Fallback Backup':
+               'Legacy Local Store',
+        createdAt:(x&&x.createdAt)||'',
+        reason:k,
+        data
+      });
+    }catch(e){}
+  });
+  return rows;
+}
+
+function fmt(t){
+  if(!t)return '—';
+  try{return new Date(t).toLocaleString()}catch(e){return String(t)}
+}
+
+async function allRows(){
+  const rows=[...(await idbRows()),...localRows()];
+  const seen=new Set(), out=[];
+  for(const r of rows){
+    try{
+      const sig=JSON.stringify(r.data);
+      if(seen.has(sig))continue;
+      seen.add(sig);
+    }catch(e){}
+    r._stats=stats(r.data);
+    out.push(r);
+  }
+  out.sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
+  return out;
+}
+
+window.v184OpenRecovery=async function(){
+  if(!u()){
+    alert('ಮೊದಲು School Login ಮಾಡಿ.');
+    return;
+  }
+  const body=$('v184RecoveryBody');
+  body.innerHTML='<div class="notice">Backup history ಪರಿಶೀಲಿಸಲಾಗುತ್ತಿದೆ…</div>';
+  $('v184RecoveryModal').style.display='block';
+  $('v184RecoveryModal').setAttribute('aria-hidden','false');
+
+  const rows=await allRows();
+  window.__v184Rows=rows;
+
+  let h='<div class="notice"><b>ಸುರಕ್ಷತಾ ಸೂಚನೆ:</b> ಮೊದಲು ಪಟ್ಟಿಯನ್ನು ಮಾತ್ರ ನೋಡಿ. Students > 0 ಇರುವ backup ಸಿಕ್ಕಾಗ ಮಾತ್ರ Restore ಒತ್ತಿರಿ. Restore ಮಾಡುವ ಮೊದಲು ಪ್ರಸ್ತುತ ಖಾಲಿ ಸ್ಥಿತಿಯ safety copy ಸ್ವಯಂಚಾಲಿತವಾಗಿ ಉಳಿಸಲಾಗುತ್ತದೆ.</div>';
+  h+='<div class="notice">ಒಟ್ಟು Backup/Store candidates: <b>'+rows.length+'</b> | Current UDISE: <b>'+esc(u())+'</b></div>';
+  if(!rows.length){
+    h+='<div class="notice">ಈ browser/deviceನಲ್ಲಿ ಯಾವುದೇ backup candidate ಸಿಗಲಿಲ್ಲ.</div>';
+  }else{
+    h+='<div class="table-wrap"><table><thead><tr><th>No</th><th>Source</th><th>Backup Time</th><th>Reason/Key</th><th>Students</th><th>Marks</th><th>Former</th><th>Academic Year</th><th>School</th><th>Action</th></tr></thead><tbody>';
+    rows.forEach((r,i)=>{
+      const s=r._stats||{};
+      const good=Number(s.students)>0;
+      h+='<tr class="'+(good?'v184-good':'v184-empty')+'">'+
+        '<td>'+(i+1)+'</td>'+
+        '<td>'+esc(r.source)+'</td>'+
+        '<td>'+esc(fmt(r.createdAt))+'</td>'+
+        '<td>'+esc(r.reason||'')+'</td>'+
+        '<td><span class="v184-tag '+(good?'good':'empty')+'">'+Number(s.students||0)+'</span></td>'+
+        '<td>'+Number(s.marks||0)+'</td>'+
+        '<td>'+Number(s.former||0)+'</td>'+
+        '<td>'+esc(s.year||'')+'</td>'+
+        '<td>'+esc(s.school||'')+'</td>'+
+        '<td><button class="btn '+(good?'success':'warning')+'" type="button" onclick="v184RestoreCandidate('+i+')" '+(good?'':'disabled')+'>Restore This Backup</button></td>'+
+      '</tr>';
+    });
+    h+='</tbody></table></div>';
+  }
+  body.innerHTML=h;
+};
+
+window.v184CloseRecovery=function(){
+  $('v184RecoveryModal').style.display='none';
+  $('v184RecoveryModal').setAttribute('aria-hidden','true');
+};
+
+window.v184RestoreCandidate=function(i){
+  const rows=window.__v184Rows||[];
+  const r=rows[i]; if(!r||!r.data)return;
+  const st=r._stats||stats(r.data);
+  if(!st.students){
+    alert('ಈ backupನಲ್ಲಿ student records ಇಲ್ಲ. Restore ಮಾಡಲಾಗುವುದಿಲ್ಲ.');
+    return;
+  }
+  const msg='ಈ backup restore ಮಾಡಬೇಕೇ?\\n\\nStudents: '+st.students+
+    '\\nBackup time: '+fmt(r.createdAt)+
+    '\\nSource: '+r.source+
+    '\\n\\nRestore ಆದ ನಂತರ page reload ಆಗುತ್ತದೆ. Cloud Sync ಅನ್ನು verification ಆಗುವವರೆಗೆ ಒತ್ತಬೇಡಿ.';
+  if(!confirm(msg))return;
+
+  const ud=u();
+  try{
+    const currentRaw=localStorage.getItem(SCHOOL_PREFIX+ud)||'';
+    localStorage.setItem('TFCCE_V184_BEFORE_RECOVERY_'+ud+'_'+Date.now(),currentRaw);
+  }catch(e){}
+
+  try{
+    const d=clone(r.data);
+    d.school=d.school||{};
+    d.school.udise=ud;
+    localStorage.setItem(SCHOOL_PREFIX+ud,JSON.stringify(d));
+    sessionStorage.setItem('TFCCE_V184_RECOVERED_FROM',JSON.stringify({udise:ud,source:r.source,createdAt:r.createdAt||'',students:st.students,at:new Date().toISOString()}));
+    alert('Backup restore ಆಗಿದೆ. ಈಗ Student Database ಪರಿಶೀಲಿಸಿ. Cloud Sync ಇನ್ನೂ ಒತ್ತಬೇಡಿ.');
+    location.reload();
+  }catch(e){
+    alert('Restore ಆಗಲಿಲ್ಲ: '+e.message);
+  }
+};
+
+function addButton(){
+  if($('v184RecoveryBtn'))return;
+  const dash=$('dashboard'); if(!dash)return;
+  const repair=$('v127RepairBtn');
+  const btn=document.createElement('button');
+  btn.id='v184RecoveryBtn';
+  btn.type='button';
+  btn.className='btn no-print';
+  btn.style.background='#6f42c1';
+  btn.style.color='#fff';
+  btn.textContent='🧰 Backup History Recovery';
+  btn.onclick=window.v184OpenRecovery;
+  if(repair&&repair.parentNode)repair.parentNode.insertBefore(btn,repair.nextSibling);
+  else dash.appendChild(btn);
+}
+
+function init(){
+  addButton();
+  const oldShow=window.showPage;
+  if(typeof oldShow==='function'&&!oldShow.__v184){
+    const wrap=function(page){const r=oldShow.apply(this,arguments);if(page==='dashboard')setTimeout(addButton,60);return r;};
+    wrap.__v184=true;window.showPage=wrap;
+  }
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(init,900));
+else setTimeout(init,900);
+})();
+</script>
+
