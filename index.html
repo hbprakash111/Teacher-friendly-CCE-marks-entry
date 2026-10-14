@@ -14491,3 +14491,129 @@ else setTimeout(init,900);
 })();
 </script>
 
+
+<!-- v185: Prevent legacy one-time Former Students cleanup from deleting valid cloud-loaded records on a new browser.
+     Adds a safe Force Reload Cloud tool for recovery after a browser already ran the legacy cleanup. -->
+<style id="v185Style">
+#v185ForceCloudBtn{
+  margin-left:6px;
+  background:#6f42c1;
+  color:#fff;
+  border:none;
+  border-radius:7px;
+  padding:8px 12px;
+  font-weight:700;
+  cursor:pointer;
+}
+#v185CurrentBackupBtn{
+  margin-left:8px;
+  background:#0d6efd;
+  color:#fff;
+  border:none;
+  border-radius:7px;
+  padding:8px 12px;
+  font-weight:700;
+  cursor:pointer;
+}
+</style>
+
+<script id="v185FormerStudentCloudFix">
+(function(){
+'use strict';
+
+const TARGET_UDISE='29110107601';
+const LEGACY_DONE_KEY='TFCCE_V143_TEST_FORMER_CLEARED_'+TARGET_UDISE;
+const SESSION='TFCCE_V110_SCHOOL_SESSION';
+const LAST_SYNC_PREFIX='TFCCE_V182_CLOUD_LAST_SYNC_';
+
+/* IMPORTANT:
+   v143 was a temporary one-time test-data cleanup created during development.
+   On a brand-new browser its marker did not exist, so after a successful cloud login
+   it could erase a valid Former Students list for the target test school.
+   Mark it complete immediately, before DOMContentLoaded/load callbacks fire. */
+try{
+  localStorage.setItem(LEGACY_DONE_KEY,'1');
+}catch(e){}
+
+function currentUdise(){
+  try{
+    return String(sessionStorage.getItem(SESSION)||window.db?.school?.udise||'').trim();
+  }catch(e){ return ''; }
+}
+
+window.v185ForceCloudReload=function(){
+  const u=currentUdise();
+  if(!u){
+    alert('ಮೊದಲು School Login ಮಾಡಿ.');
+    return;
+  }
+
+  try{
+    localStorage.setItem(LEGACY_DONE_KEY,'1');
+    localStorage.removeItem(LAST_SYNC_PREFIX+u);
+  }catch(e){}
+
+  if(typeof window.v182LoadLatestCloud==='function'){
+    window.v182LoadLatestCloud();
+  }else{
+    alert('Cloud Load tool ಸಿಗಲಿಲ್ಲ. Page refresh ಮಾಡಿ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.');
+  }
+};
+
+function addCloudButton(){
+  const host=document.getElementById('v182CloudTools');
+  if(!host || document.getElementById('v185ForceCloudBtn')) return;
+
+  const btn=document.createElement('button');
+  btn.id='v185ForceCloudBtn';
+  btn.type='button';
+  btn.textContent='↻ Force Reload Cloud';
+  btn.onclick=window.v185ForceCloudReload;
+
+  const status=document.getElementById('v182CloudStatus');
+  if(status) host.insertBefore(btn,status);
+  else host.appendChild(btn);
+}
+
+function addBackupButton(){
+  if(document.getElementById('v185CurrentBackupBtn')) return;
+  const dash=document.getElementById('dashboard');
+  if(!dash) return;
+
+  const recovery=document.getElementById('v184RecoveryBtn');
+  const btn=document.createElement('button');
+  btn.id='v185CurrentBackupBtn';
+  btn.type='button';
+  btn.textContent='⬇ Current Backup Download';
+  btn.onclick=function(){
+    if(typeof window.v84DownloadBackup==='function'){
+      window.v84DownloadBackup();
+    }else{
+      alert('Backup download function ಸಿಗಲಿಲ್ಲ.');
+    }
+  };
+
+  if(recovery && recovery.parentNode){
+    recovery.parentNode.insertBefore(btn,recovery.nextSibling);
+  }else{
+    dash.appendChild(btn);
+  }
+}
+
+function init(){
+  try{ localStorage.setItem(LEGACY_DONE_KEY,'1'); }catch(e){}
+  addCloudButton();
+  addBackupButton();
+}
+
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded',()=>setTimeout(init,700));
+}else{
+  setTimeout(init,700);
+}
+window.addEventListener('load',()=>setTimeout(init,900));
+setInterval(()=>{ try{ addCloudButton(); addBackupButton(); }catch(e){} },2500);
+
+})();
+</script>
+
