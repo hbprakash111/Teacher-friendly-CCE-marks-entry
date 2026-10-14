@@ -10633,7 +10633,439 @@ function showExisting159(ex){
   '<style>body{font-family:Arial,sans-serif;padding:20px}table{border-collapse:collapse;width:100%}td{border:1px solid #ddd;padding:8px}td:first-child{font-weight:bold;background:#f7f7f7;width:35%}</style>'+
   '</head><body><h2>Existing Former Student Record</h2><table>'+
   rows.map(r=>'<tr><td>'+esc159(r[0])+'</td><td>'+esc159(r[1])+'</td></tr>').join('')+
-  '</table></body></html>');
+  '</table>
+<!-- v182: Secure school-wise cloud sync.
+     - Uses UDISE + school password through PBKDF2 to derive a per-school cloud secret.
+     - Sends only the derived secret in x-school-sync-key; raw password is never sent to Supabase.
+     - Supports secure per-school push, cloud-login fallback on another device, and manual cloud load.
+     - Supabase publishable key is public by design; security is enforced by RLS + school secret.
+-->
+<style id="v182CloudStyles">
+#v182CloudTools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0 2px}
+#v182CloudTools button{border:0;border-radius:8px;padding:7px 11px;font-weight:800;cursor:pointer}
+#v182SyncBtn{background:#1677ff;color:#fff}
+#v182LoadBtn{background:#0f9d58;color:#fff}
+#v182CloudStatus{font-size:12px;font-weight:800;color:#52677f}
+</style>
+
+<script id="v182SecureSchoolCloudSync">
+(function(){
+'use strict';
+
+const TECH_KEY='TFCCE_MASTER_SUPABASE_CONFIG_V1';
+const SCHOOL_STORE='TFCCE_V110_SCHOOLS';
+const SESSION='TFCCE_V110_SCHOOL_SESSION';
+const LOCAL_PREFIX='TFCCE_SCHOOL_DB_V1_';
+const SESSION_SECRET='TFCCE_V182_CLOUD_SECRET';
+const LAST_SYNC_PREFIX='TFCCE_V182_CLOUD_LAST_SYNC_';
+const DEFAULT_URL='https://ksbqlqheunwqdybeetjg.supabase.co';
+const DEFAULT_KEY='sb_publishable_okeyyRTgyfc-Hx9c1frZsA_uK30BsOm';
+
+const $=id=>document.getElementById(id);
+const today=()=>new Date().toISOString().slice(0,10);
+
+function normU(v){
+  return String(v||'')
+    .replace(/[０-９]/g,ch=>String.fromCharCode(ch.charCodeAt(0)-0xFEE0))
+    .replace(/[\s\-]/g,'')
+    .trim();
+}
+function normBase(url){
+  return String(url||'').trim().replace(/\/+$/,'').replace(/\/rest\/v1$/,'');
+}
+function tech(){
+  try{
+    const x=JSON.parse(localStorage.getItem(TECH_KEY)||'null');
+    if(x&&x.url&&x.key)return {url:normBase(x.url),key:String(x.key).trim()};
+  }catch(e){}
+  try{
+    const u=normBase(db?.supabase?.url||'');
+    const k=String(db?.supabase?.key||'').trim();
+    if(u&&k)return {url:u,key:k};
+  }catch(e){}
+  return {url:DEFAULT_URL,key:DEFAULT_KEY};
+}
+function headers(apiKey,extra){
+  const k=String(apiKey||'').trim();
+  const h={apikey:k,'Content-Type':'application/json'};
+  if(k.startsWith('eyJ'))h.Authorization='Bearer '+k;
+  return Object.assign(h,extra||{});
+}
+function accounts(){
+  try{
+    const a=JSON.parse(localStorage.getItem(SCHOOL_STORE)||'[]');
+    return Array.isArray(a)?a:[];
+  }catch(e){return[]}
+}
+function putAccounts(a){
+  localStorage.setItem(SCHOOL_STORE,JSON.stringify(a));
+}
+function account(u){
+  const n=normU(u);
+  return accounts().find(x=>normU(x.udise)===n)||null;
+}
+function statusOf(r){
+  if(!r)return'UNREGISTERED';
+  if(String(r.status||'').toUpperCase()==='SUSPENDED')return'SUSPENDED';
+  if(r.expiry && String(r.expiry)<today())return'EXPIRED';
+  return'ACTIVE';
+}
+function textBytes(s){return new TextEncoder().encode(String(s||''))}
+function hex(buf){return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('')}
+async function sha256Hex(s){
+  return hex(await crypto.subtle.digest('SHA-256',textBytes(s)));
+}
+async function deriveSchoolSecret(u,password){
+  const base=await crypto.subtle.importKey('raw',textBytes(password),'PBKDF2',false,['deriveBits']);
+  const bits=await crypto.subtle.deriveBits({
+    name:'PBKDF2',
+    salt:textBytes('TFCCE|SCHOOL|'+normU(u)),
+    iterations:120000,
+    hash:'SHA-256'
+  },base,256);
+  return hex(bits);
+}
+function setSessionSecret(u,secret){
+  sessionStorage.setItem(SESSION_SECRET,JSON.stringify({udise:normU(u),secret:String(secret||'')}));
+}
+function getSessionSecret(u){
+  try{
+    const x=JSON.parse(sessionStorage.getItem(SESSION_SECRET)||'null');
+    if(x&&normU(x.udise)===normU(u)&&x.secret)return String(x.secret);
+  }catch(e){}
+  return '';
+}
+async function secretFor(u){
+  const s=getSessionSecret(u);
+  if(s)return s;
+  const a=account(u);
+  if(a&&String(a.password||'').trim()){
+    const d=await deriveSchoolSecret(u,String(a.password).trim());
+    setSessionSecret(u,d);
+    return d;
+  }
+  return '';
+}
+function cloudMeta(u){
+  const a=account(u)||{};
+  return {
+    name:a.name||db?.school?.name||'',
+    udise:normU(u),
+    start:a.start||'',
+    expiry:a.expiry||'',
+    payment:a.payment||'PAID',
+    status:a.status||'ACTIVE',
+    ref:a.ref||'',
+    mobile:a.mobile||db?.school?.registeredMobile||'',
+    notes:a.notes||'',
+    updatedAt:a.updatedAt||new Date().toISOString()
+  };
+}
+function clonedDbWithMeta(u){
+  let d;
+  try{d=JSON.parse(JSON.stringify(db||{}))}catch(e){d={}}
+  d.school=d.school||{};
+  d.school.udise=normU(u);
+  d._cloudAccess=cloudMeta(u);
+  return d;
+}
+function safeDbFromPayload(payload,u){
+  let d;
+  try{d=JSON.parse(JSON.stringify(payload||{}))}catch(e){d={}}
+  const meta=d._cloudAccess||{};
+  delete d._cloudAccess;
+  d.school=d.school||{};
+  d.school.udise=normU(u);
+  if(!d.school.name && meta.name)d.school.name=meta.name;
+  if(!d.school.registeredMobile && meta.mobile)d.school.registeredMobile=meta.mobile;
+  return {db:d,meta};
+}
+function setMsg(text,ok){
+  const el=$('syncMessage');
+  if(el){
+    el.textContent=text;
+    el.style.color=ok===true?'#198754':ok===false?'#c62828':'#445';
+    el.style.fontWeight='700';
+  }
+  const s=$('v182CloudStatus');
+  if(s)s.textContent=text.replace(/^.[^A-Za-z0-9\u0C80-\u0CFF]*/,'');
+}
+async function fetchCloudRow(u,secret){
+  const cfg=tech();
+  const id='school_'+normU(u);
+  const q=cfg.url+'/rest/v1/cce_app_data?id=eq.'+encodeURIComponent(id)+'&select=id,school_name,udise,academic_year,payload,updated_at';
+  const r=await fetch(q,{method:'GET',headers:headers(cfg.key,{'x-school-sync-key':secret})});
+  if(!r.ok)throw new Error(await r.text());
+  const rows=await r.json();
+  return Array.isArray(rows)&&rows.length?rows[0]:null;
+}
+async function pushRow(u,secret,dataObj,metaOverride){
+  const cfg=tech();
+  const id='school_'+normU(u);
+  const syncHash=await sha256Hex(secret);
+  let payload;
+  try{payload=JSON.parse(JSON.stringify(dataObj||{}))}catch(e){payload={}}
+  payload._cloudAccess=Object.assign({},payload._cloudAccess||{},metaOverride||cloudMeta(u));
+  payload.school=payload.school||{};
+  payload.school.udise=normU(u);
+  const body={
+    id,
+    school_name:payload.school.name||payload._cloudAccess?.name||'',
+    udise:normU(u),
+    academic_year:payload.school.academicYear||'',
+    payload,
+    sync_key_hash:syncHash,
+    updated_at:new Date().toISOString()
+  };
+  const r=await fetch(cfg.url+'/rest/v1/cce_app_data',{
+    method:'POST',
+    headers:headers(cfg.key,{
+      'x-school-sync-key':secret,
+      Prefer:'resolution=merge-duplicates,return=representation'
+    }),
+    body:JSON.stringify(body)
+  });
+  if(!r.ok)throw new Error(await r.text());
+  return r;
+}
+async function testConnection(){
+  const cfg=tech();
+  if(!cfg.url||!cfg.key){setMsg('❌ Supabase configuration ಇಲ್ಲ.',false);return false}
+  try{
+    const r=await fetch(cfg.url+'/rest/v1/cce_app_data?select=id&limit=1',{headers:headers(cfg.key)});
+    if(!r.ok)throw new Error(await r.text());
+    setMsg('✅ Supabase connection ಯಶಸ್ವಿಯಾಗಿದೆ.',true);
+    return true;
+  }catch(e){
+    setMsg('❌ Connection Error: '+e.message,false);
+    return false;
+  }
+}
+async function syncCurrentSchool(){
+  const u=normU(sessionStorage.getItem(SESSION)||db?.school?.udise||'');
+  if(!u){setMsg('❌ ಮೊದಲು School Login ಮಾಡಿ.',false);return false}
+  const secret=await secretFor(u);
+  if(!secret){
+    setMsg('❌ ಈ schoolಗೆ cloud secret ಸಿಗಲಿಲ್ಲ. School password ಮೂಲಕ ಮತ್ತೆ login ಮಾಡಿ.',false);
+    return false;
+  }
+  setMsg('☁️ ಈ ಶಾಲೆಯ data secure cloudಗೆ sync ಆಗುತ್ತಿದೆ…');
+  try{
+    await pushRow(u,secret,clonedDbWithMeta(u));
+    localStorage.setItem(LAST_SYNC_PREFIX+u,new Date().toISOString());
+    setMsg('✅ School-wise Secure Cloud Sync ಯಶಸ್ವಿಯಾಗಿದೆ.',true);
+    return true;
+  }catch(e){
+    setMsg('❌ Secure Sync Error: '+e.message,false);
+    return false;
+  }
+}
+async function loadLatestCloud(force){
+  const u=normU(sessionStorage.getItem(SESSION)||'');
+  if(!u){setMsg('❌ ಮೊದಲು School Login ಮಾಡಿ.',false);return false}
+  const secret=await secretFor(u);
+  if(!secret){setMsg('❌ Cloud secret ಸಿಗಲಿಲ್ಲ. ಮತ್ತೆ School Login ಮಾಡಿ.',false);return false}
+  setMsg('☁️ Cloud data ಪರಿಶೀಲಿಸಲಾಗುತ್ತಿದೆ…');
+  try{
+    const row=await fetchCloudRow(u,secret);
+    if(!row){setMsg('ℹ️ ಈ ಶಾಲೆಗೆ cloud backup ಇನ್ನೂ ಇಲ್ಲ. ಮೊದಲು Secure Sync ಮಾಡಿ.',null);return false}
+    const parsed=safeDbFromPayload(row.payload,u);
+    const localKey=LOCAL_PREFIX+u;
+    const localRaw=localStorage.getItem(localKey);
+    if(!force && localRaw){
+      const last=localStorage.getItem(LAST_SYNC_PREFIX+u)||'';
+      if(last && row.updated_at && String(row.updated_at)<=String(last)){
+        setMsg('✅ Local data ಈಗಾಗಲೇ latest ಆಗಿದೆ.',true);
+        return true;
+      }
+      if(!confirm('Cloudನಲ್ಲಿ ಹೊಸ data ಇರಬಹುದು. ಈ deviceನ local school data ಅನ್ನು cloud copy ಮೂಲಕ update ಮಾಡಬೇಕೆ?')){
+        setMsg('Cloud Load cancel ಮಾಡಲಾಗಿದೆ.',null);return false;
+      }
+    }
+    localStorage.setItem(localKey,JSON.stringify(parsed.db));
+    localStorage.setItem(LAST_SYNC_PREFIX+u,String(row.updated_at||new Date().toISOString()));
+    db=parsed.db;
+    try{if(typeof updateHeader==='function')updateHeader()}catch(e){}
+    try{if(typeof updateDashboard==='function')updateDashboard()}catch(e){}
+    setMsg('✅ Latest cloud data ಈ deviceಗೆ load ಆಗಿದೆ.',true);
+    setTimeout(()=>location.reload(),350);
+    return true;
+  }catch(e){
+    setMsg('❌ Cloud Load Error: '+e.message,false);
+    return false;
+  }
+}
+function rememberChecked(){
+  const e=$('v123Remember')||$('v122Remember');
+  return !e || !!e.checked;
+}
+function loginMsg(html,color){
+  const m=$('v110LoginMsg');if(!m)return;
+  m.innerHTML='<div class="v110-note" style="border-left-color:'+(color||'#c62828')+'">'+html+'</div>';
+}
+function saveLocalCloudAccount(u,p,row,remember){
+  const parsed=safeDbFromPayload(row.payload,u);
+  const meta=parsed.meta||{};
+  let list=accounts();
+  const i=list.findIndex(x=>normU(x.udise)===normU(u));
+  const existing=i>=0?list[i]:{};
+  const rec=Object.assign({},existing,{
+    name:meta.name||row.school_name||existing.name||'',
+    udise:normU(u),
+    password:remember?p:(existing.password||''),
+    start:meta.start||existing.start||'',
+    expiry:meta.expiry||existing.expiry||'',
+    payment:meta.payment||existing.payment||'PAID',
+    status:meta.status||existing.status||'ACTIVE',
+    ref:meta.ref||existing.ref||'',
+    mobile:meta.mobile||existing.mobile||'',
+    notes:meta.notes||existing.notes||'',
+    updatedAt:meta.updatedAt||new Date().toISOString()
+  });
+  if(i>=0)list[i]=rec; else list.push(rec);
+  putAccounts(list);
+  localStorage.setItem(LOCAL_PREFIX+normU(u),JSON.stringify(parsed.db));
+  localStorage.setItem(LAST_SYNC_PREFIX+normU(u),String(row.updated_at||new Date().toISOString()));
+}
+async function cloudLogin(u,p){
+  const secret=await deriveSchoolSecret(u,p);
+  const row=await fetchCloudRow(u,secret);
+  if(!row)return null;
+  const meta=(row.payload&&row.payload._cloudAccess)||{};
+  const st=String(meta.status||'ACTIVE').toUpperCase();
+  if(st==='SUSPENDED')throw new Error('ಈ ಶಾಲೆಯ access SUSPENDED ಆಗಿದೆ.');
+  if(meta.expiry && String(meta.expiry)<today())throw new Error('ಈ ಶಾಲೆಯ access EXPIRED ಆಗಿದೆ.');
+  setSessionSecret(u,secret);
+  saveLocalCloudAccount(u,p,row,rememberChecked());
+  sessionStorage.setItem(SESSION,normU(u));
+  try{
+    if(rememberChecked()){
+      localStorage.setItem('TFCCE_V124_TRUSTED_SCHOOL',JSON.stringify({udise:normU(u),updatedAt:String((account(u)||{}).updatedAt||'')}));
+    }
+  }catch(e){}
+  return row;
+}
+
+/* Final school login override:
+   local account works offline; otherwise secure cloud login is attempted. */
+window.v110DoSchoolLogin=async function(){
+  const u=normU($('v110LoginUdise')?.value||'');
+  const p=String($('v110LoginPassword')?.value||'').trim();
+  if(!u){loginMsg('ಮೊದಲು UDISE / DISE Username ನಮೂದಿಸಿ.');return}
+  if(!p){loginMsg('ಮೊದಲು Password ನಮೂದಿಸಿ.');return}
+
+  const a=account(u);
+  if(a && String(a.password||'').trim()===p && statusOf(a)==='ACTIVE'){
+    const secret=await deriveSchoolSecret(u,p);
+    setSessionSecret(u,secret);
+    sessionStorage.setItem(SESSION,u);
+    loginMsg('✅ Login successful. School data is loading…','#198754');
+    setTimeout(()=>location.reload(),220);
+    return;
+  }
+
+  loginMsg('☁️ Secure cloud login ಪರಿಶೀಲಿಸಲಾಗುತ್ತಿದೆ…','#1769d2');
+  try{
+    const row=await cloudLogin(u,p);
+    if(!row){
+      loginMsg('<b>UDISE / Password ಸರಿಯಾಗಿಲ್ಲ ಅಥವಾ ಈ school cloudನಲ್ಲಿ provision ಆಗಿಲ್ಲ.</b><br>Master Adminನಲ್ಲಿ school account save ಮಾಡಿ ಮತ್ತು Secure Sync ಮಾಡಿ.');
+      return;
+    }
+    loginMsg('✅ Secure cloud login successful. Data loading…','#198754');
+    setTimeout(()=>location.reload(),260);
+  }catch(e){
+    if(a && String(a.password||'').trim()===p && statusOf(a)!=='ACTIVE'){
+      loginMsg('<b>ಈ ಶಾಲೆಯ access '+statusOf(a)+'.</b>','#c98200');
+    }else{
+      loginMsg('❌ '+e.message);
+    }
+  }
+};
+
+const oldLogout=window.v111SchoolLogout;
+window.v111SchoolLogout=function(){
+  sessionStorage.removeItem(SESSION_SECRET);
+  if(typeof oldLogout==='function')return oldLogout.apply(this,arguments);
+  sessionStorage.removeItem(SESSION);
+  location.reload();
+};
+
+/* Safe sync button behavior. */
+window.v131TestSupabase=testConnection;
+window.v131SyncCurrentSchool=syncCurrentSchool;
+window.syncSupabase=async function(){
+  const ok=await testConnection();
+  if(ok)await syncCurrentSchool();
+};
+window.v182LoadLatestCloud=()=>loadLatestCloud(false);
+
+/* Master Admin: when a NEW school account is saved, provision an empty cloud row
+   so the school can log in from another device immediately.
+   Existing password changes are not auto-rekeyed in v182. */
+const oldSaveSchool=window.v110SaveSchool;
+if(typeof oldSaveSchool==='function'){
+  window.v110SaveSchool=function(){
+    const u=normU($('v110Udise')?.value||'');
+    const p=String($('v110Password')?.value||'').trim();
+    const before=account(u);
+    const oldPass=before?String(before.password||'').trim():'';
+    const ret=oldSaveSchool.apply(this,arguments);
+
+    setTimeout(async()=>{
+      if(!u||!p)return;
+      if(before && oldPass && oldPass!==p){
+        setMsg('⚠️ School password ಬದಲಾಗಿದೆ. Cloud password re-key ಅನ್ನು ಮುಂದಿನ ಹಂತದಲ್ಲಿ ಮಾಡಬೇಕು; ಈಗ Secure Sync ಒತ್ತಬೇಡಿ.',false);
+        return;
+      }
+      try{
+        const secret=await deriveSchoolSecret(u,p);
+        let d=null;
+        try{d=JSON.parse(localStorage.getItem(LOCAL_PREFIX+u)||'null')}catch(e){}
+        if(!d){
+          try{d=JSON.parse(JSON.stringify(emptyDB()))}catch(e){d={school:{},classes:{}}}
+          d.school=d.school||{}; d.school.udise=u; d.school.name=(account(u)||{}).name||'';
+        }
+        const meta=cloudMeta(u);
+        await pushRow(u,secret,d,meta);
+      }catch(e){
+        console.warn('v182 school cloud provision',e);
+      }
+    },400);
+    return ret;
+  };
+}
+
+/* Add simple school cloud tools to the Technical Setup area. */
+function addTools(){
+  if($('v182CloudTools'))return;
+  const testBtn=[...document.querySelectorAll('button')].find(b=>(b.textContent||'').includes('Test Connection'));
+  if(!testBtn||!testBtn.parentElement)return;
+  const box=document.createElement('div');
+  box.id='v182CloudTools';
+  box.innerHTML=
+    '<button id="v182SyncBtn" type="button" onclick="v131SyncCurrentSchool()">☁ Secure Sync Now</button>'+
+    '<button id="v182LoadBtn" type="button" onclick="v182LoadLatestCloud()">☁ Load Latest Cloud</button>'+
+    '<span id="v182CloudStatus">School-wise secure sync ready</span>';
+  testBtn.parentElement.parentElement.appendChild(box);
+  const blue=[...document.querySelectorAll('button')].find(b=>(b.textContent||'').includes('Test / Sync'));
+  if(blue)blue.textContent='☁ Test / Secure Sync';
+}
+function init(){
+  const cfg=tech();
+  try{
+    if(!localStorage.getItem(TECH_KEY)){
+      localStorage.setItem(TECH_KEY,JSON.stringify({url:cfg.url,key:cfg.key,updatedAt:new Date().toISOString(),embeddedDefault:true}));
+    }
+  }catch(e){}
+  addTools();
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(init,1200));
+else setTimeout(init,1200);
+
+})();
+</script>
+
+</body></html>');
   w.document.close();
 }
 function merge159(ex,p){
