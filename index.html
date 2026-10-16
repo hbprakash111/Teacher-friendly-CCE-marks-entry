@@ -16236,3 +16236,338 @@ setInterval(bindLogout,2000);
 })();
 </script>
 
+
+<!-- =========================================================
+ v192 TEACHERS PAGE STABILITY + HEAD SESSION FIX
+ Fixes:
+ 1) Teachers row no longer blinks between old action layouts.
+ 2) Head Teacher authenticated role is preserved while navigating pages
+    inside the same browser tab/session.
+ 3) Teachers page shows one stable Action area.
+ 4) Legacy v136/v137 background enhancers are redirected into a hidden
+    sink cell so they cannot visually replace the current controls.
+========================================================= -->
+<style id="v192TeacherStableStyles">
+#v134TeacherRows td.v192-stable-actions{white-space:nowrap;min-width:310px}
+#v134TeacherRows .v192-action-btn{
+  margin:2px;padding:5px 8px;border:0;border-radius:7px;cursor:pointer;font-weight:700
+}
+#v134TeacherRows .v192-edit{background:#0d6efd;color:#fff}
+#v134TeacherRows .v192-transfer{background:#f0ad4e;color:#2b2100}
+#v134TeacherRows .v192-delete{background:#dc3545;color:#fff}
+#v134TeacherRows .v192-head{background:#6f42c1;color:#fff}
+#v134TeacherRows .v192-pin{background:#198754;color:#fff}
+#v134TeacherRows .v192-pin-remove{background:#6c757d;color:#fff}
+#v134TeacherRows .v192-readonly{
+  display:inline-block;padding:5px 8px;border-radius:999px;background:#eef3f8;color:#536273;font-weight:700
+}
+.v192-legacy-sink{display:none!important}
+</style>
+
+<script id="v192TeacherStableScript">
+(function(){
+'use strict';
+
+window.TFCCE_VERSION='v192';
+
+const SCHOOL_SESSION='TFCCE_V110_SCHOOL_SESSION';
+const HEAD_MODE='cce_v107_head_mode';
+const ADMIN_SESSION='TFCCE_V110_ADMIN_SESSION';
+const TEACHER_SESSION='TFCCE_V190_TEACHER_SESSION';
+const HEAD_SAFE='TFCCE_V192_HEAD_SESSION';
+
+function normU(v){
+  return String(v||'')
+    .replace(/[０-９]/g,function(ch){return String.fromCharCode(ch.charCodeAt(0)-0xFEE0)})
+    .replace(/[\s\-]/g,'')
+    .trim();
+}
+function digits(v){return String(v||'').replace(/\D/g,'')}
+function udise(){
+  try{return normU(sessionStorage.getItem(SCHOOL_SESSION)||window.db?.school?.udise||'')}
+  catch(e){return ''}
+}
+function safeHead(){
+  try{
+    const x=JSON.parse(sessionStorage.getItem(HEAD_SAFE)||'null');
+    return !!(x && normU(x.udise)===udise());
+  }catch(e){return false}
+}
+function rememberHead(){
+  if(!udise())return;
+  try{
+    sessionStorage.setItem(HEAD_SAFE,JSON.stringify({udise:udise(),at:new Date().toISOString()}));
+  }catch(e){}
+}
+function clearSafeHead(){
+  try{sessionStorage.removeItem(HEAD_SAFE)}catch(e){}
+}
+function teacherSession(){
+  try{
+    const x=JSON.parse(sessionStorage.getItem(TEACHER_SESSION)||'null');
+    if(!x || normU(x.udise)!==udise())return null;
+    const t=(Array.isArray(window.db?.teachers)?db.teachers:[]).find(function(y){
+      return String(y.id)===String(x.teacherId) && String(y.status||'Active')==='Active';
+    });
+    return t?{teacher:t,session:x}:null;
+  }catch(e){return null}
+}
+function keepAuthenticatedHead(){
+  if(safeHead() && !teacherSession()){
+    try{sessionStorage.setItem(HEAD_MODE,'1')}catch(e){}
+  }
+}
+function role(){
+  keepAuthenticatedHead();
+  if(sessionStorage.getItem(HEAD_MODE)==='1' || sessionStorage.getItem(ADMIN_SESSION)==='1' || safeHead())return 'HEAD';
+  if(teacherSession())return 'TEACHER';
+  return 'VIEW';
+}
+function findTeacherFromRow(tr){
+  if(!window.db || !Array.isArray(db.teachers) || !tr || !tr.cells || tr.cells.length<3)return null;
+  const name=String(tr.cells[1]?.textContent||'').trim();
+  const mobile=digits(tr.cells[2]?.textContent||'').slice(-10);
+  return db.teachers.find(function(t){
+    const sameName=String(t.name||'').trim()===name;
+    const tm=digits(t.mobile).slice(-10);
+    return sameName && (!mobile || tm===mobile);
+  }) || db.teachers.find(function(t){return String(t.name||'').trim()===name}) || null;
+}
+function btn(label,cls,fn){
+  const b=document.createElement('button');
+  b.type='button';
+  b.className='v192-action-btn '+cls;
+  b.textContent=label;
+  b.addEventListener('click',function(e){
+    e.preventDefault();e.stopPropagation();
+    fn();
+  });
+  return b;
+}
+function stabilizeRow(tr){
+  if(!tr || !tr.cells || tr.cells.length<9)return;
+  const t=findTeacherFromRow(tr);
+  if(!t)return;
+
+  /* Original V134 Action column remains cell 8. */
+  const action=tr.cells[8];
+  if(!action)return;
+  action.classList.add('v192-stable-actions');
+
+  /* Add a permanent hidden last cell. Old v136/v137 scripts always modify
+     lastElementChild; from now on they write only into this invisible sink. */
+  let sink=tr.querySelector('td.v192-legacy-sink');
+  if(!sink){
+    sink=document.createElement('td');
+    sink.className='v192-legacy-sink';
+    sink.setAttribute('aria-hidden','true');
+    tr.appendChild(sink);
+  }else{
+    sink.className='v192-legacy-sink';
+  }
+
+  const m=role();
+  const signature=[
+    m,t.id,t.role,t.status||'Active',t.pinHash?'pin':'nopin',
+    t.name||'',t.mobile||''
+  ].join('|');
+
+  if(action.dataset.v192Signature===signature && action.querySelector('.v192-action-btn,.v192-readonly')){
+    return;
+  }
+
+  action.dataset.v192Signature=signature;
+  action.innerHTML='';
+
+  if(m!=='HEAD'){
+    const s=document.createElement('span');
+    s.className='v192-readonly';
+    s.textContent=m==='TEACHER'?'Teacher — management locked':'View Only';
+    action.appendChild(s);
+    return;
+  }
+
+  action.appendChild(btn('Edit','v192-edit',function(){
+    if(typeof window.v137TeacherEdit==='function')window.v137TeacherEdit(t.id);
+  }));
+
+  if(String(t.role||'TEACHER')!=='HEAD_TEACHER'){
+    action.appendChild(btn('Make Head','v192-head',function(){
+      if(typeof window.v137TeacherAction==='function')window.v137TeacherAction(t.id,'head');
+    }));
+  }
+
+  action.appendChild(btn(
+    String(t.status||'Active')==='Transferred'?'Activate':'Transferred',
+    'v192-transfer',
+    function(){
+      if(typeof window.v137TeacherAction==='function'){
+        window.v137TeacherAction(
+          t.id,
+          String(t.status||'Active')==='Transferred'?'activate':'transfer'
+        );
+      }
+    }
+  ));
+
+  action.appendChild(btn('Delete','v192-delete',function(){
+    if(typeof window.v137TeacherAction==='function')window.v137TeacherAction(t.id,'delete');
+  }));
+
+  if(String(t.role||'TEACHER')!=='HEAD_TEACHER'){
+    action.appendChild(btn(
+      t.pinHash?'🔑 Change PIN':'🔑 Set PIN',
+      'v192-pin',
+      function(){
+        if(typeof window.v190SetTeacherPin==='function')window.v190SetTeacherPin(t.id);
+      }
+    ));
+    if(t.pinHash){
+      action.appendChild(btn('Remove PIN','v192-pin-remove',function(){
+        if(typeof window.v190RemoveTeacherPin==='function')window.v190RemoveTeacherPin(t.id);
+      }));
+    }
+  }
+}
+function stabilizeTable(){
+  keepAuthenticatedHead();
+
+  const rows=document.getElementById('v134TeacherRows');
+  if(!rows)return;
+
+  Array.from(rows.querySelectorAll('tr')).forEach(stabilizeRow);
+
+  /* Make the old role line agree with the new Work Access model. */
+  const rb=document.getElementById('v134RoleBar');
+  if(rb){
+    const m=role();
+    const label=m==='HEAD'?'Head Teacher':m==='TEACHER'?'Teacher':'View Only';
+    rb.textContent='Current Work Access: '+label+
+      ' | School: '+(window.db?.school?.name||'')+
+      ' | UDISE: '+(window.db?.school?.udise||'');
+  }
+
+  /* Refresh top access bar only after the restored Head session exists. */
+  try{
+    if(typeof window.v190ApplyRoleUI==='function')window.v190ApplyRoleUI();
+  }catch(e){}
+}
+
+/* Remember a successful Head PIN login for this tab/session. */
+const previousHeadAccess=window.v190HeadAccess;
+if(typeof previousHeadAccess==='function'){
+  window.v190HeadAccess=function(){
+    const wasHead=role()==='HEAD';
+    const r=previousHeadAccess.apply(this,arguments);
+    setTimeout(function(){
+      const nowHead=sessionStorage.getItem(HEAD_MODE)==='1' || sessionStorage.getItem(ADMIN_SESSION)==='1';
+      if(nowHead){
+        rememberHead();
+        keepAuthenticatedHead();
+      }else if(wasHead){
+        clearSafeHead();
+      }
+      stabilizeTable();
+    },50);
+    return r;
+  };
+}
+
+/* Correct role logout must clear the v192 remembered Head session too. */
+const previousRoleLogout=window.v191LogoutRole;
+window.v191LogoutRole=function(){
+  clearSafeHead();
+  try{sessionStorage.removeItem(HEAD_MODE)}catch(e){}
+  try{sessionStorage.removeItem(TEACHER_SESSION)}catch(e){}
+  const r=typeof previousRoleLogout==='function'
+    ? previousRoleLogout.apply(this,arguments)
+    : undefined;
+  setTimeout(stabilizeTable,80);
+  return r;
+};
+
+/* School logout ends all work-role sessions. */
+const previousSchoolLogout=window.v111SchoolLogout;
+if(typeof previousSchoolLogout==='function'){
+  window.v111SchoolLogout=function(){
+    clearSafeHead();
+    try{sessionStorage.removeItem(HEAD_MODE)}catch(e){}
+    try{sessionStorage.removeItem(TEACHER_SESSION)}catch(e){}
+    return previousSchoolLogout.apply(this,arguments);
+  };
+}
+
+/* Every teacher table render is normalized immediately. */
+const previousRender=window.V134render;
+if(typeof previousRender==='function'){
+  window.V134render=function(){
+    const r=previousRender.apply(this,arguments);
+    setTimeout(stabilizeTable,0);
+    setTimeout(stabilizeTable,60);
+    return r;
+  };
+}
+
+/* Navigation must not drop authenticated Head access. */
+const previousShow=window.showPage;
+if(typeof previousShow==='function'){
+  window.showPage=function(){
+    keepAuthenticatedHead();
+    const r=previousShow.apply(this,arguments);
+    setTimeout(stabilizeTable,40);
+    return r;
+  };
+  try{showPage=window.showPage}catch(e){}
+}
+
+/* Observe V134 row rebuilds. We do NOT react to changes inside the hidden
+   legacy sink; only row replacement / visible action replacement is normalized. */
+let observer=null;
+function attachObserver(){
+  const rows=document.getElementById('v134TeacherRows');
+  if(!rows || rows.dataset.v192Observed==='1')return;
+  rows.dataset.v192Observed='1';
+  observer=new MutationObserver(function(muts){
+    let visibleChange=false;
+    for(const m of muts){
+      const target=m.target.nodeType===1?m.target:m.target.parentElement;
+      if(target && target.closest && target.closest('.v192-legacy-sink'))continue;
+      visibleChange=true;break;
+    }
+    if(visibleChange)queueMicrotask(stabilizeTable);
+  });
+  observer.observe(rows,{childList:true,subtree:true});
+}
+
+/* If v190/v191 Head session is already active when v192 loads, remember it. */
+if(sessionStorage.getItem(HEAD_MODE)==='1' || sessionStorage.getItem(ADMIN_SESSION)==='1'){
+  rememberHead();
+}
+
+function init(){
+  keepAuthenticatedHead();
+  attachObserver();
+  stabilizeTable();
+}
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded',function(){
+    setTimeout(init,900);
+    setTimeout(init,1800);
+  });
+}else{
+  setTimeout(init,700);
+}
+window.addEventListener('load',function(){setTimeout(init,900)});
+
+/* Small reconciliation timer. It changes DOM only when necessary. */
+setInterval(function(){
+  try{
+    keepAuthenticatedHead();
+    attachObserver();
+    stabilizeTable();
+  }catch(e){}
+},1200);
+
+})();
+</script>
+
