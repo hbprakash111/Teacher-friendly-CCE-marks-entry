@@ -15565,3 +15565,585 @@ document.addEventListener('visibilitychange',function(){
 })();
 </script>
 
+
+<!-- =========================================================
+ v190 HEAD TEACHER CONTROLLED TEACHER PIN LOGIN
+ - No SMS / OTP charge.
+ - Head Teacher assigns/resets a 6-digit PIN for each active teacher.
+ - PIN is stored only as PBKDF2 hash + random salt (never plain text).
+ - Teacher login works on a school device/browser already enrolled/logged-in.
+ - After login, Teacher may enter/save marks and view/print/export reports.
+ - Student DB mutations, Settings changes, Teacher management, TC/Former
+   Students management and Academic Year promotion remain Head-only.
+ - When nobody is logged into a work role, the school remains View Only.
+========================================================= -->
+
+<style id="v190TeacherPinStyles">
+#v190AccessBar{
+  margin:10px 0 12px;padding:10px 12px;border:1px solid #d6e2ef;border-left:5px solid #3456d1;
+  border-radius:10px;background:#f8fbff;display:flex;gap:8px;align-items:center;flex-wrap:wrap;
+  font-size:12px;color:#334155
+}
+#v190AccessBar .v190-title{font-weight:900;color:#1e3a5f;margin-right:4px}
+#v190AccessBar .v190-state{padding:5px 9px;border-radius:999px;background:#eef3f8;font-weight:800}
+#v190AccessBar .v190-state.head{background:#e8f7ee;color:#176b3a}
+#v190AccessBar .v190-state.teacher{background:#eef4ff;color:#2547a8}
+#v190AccessBar button{
+  border:0;border-radius:8px;padding:7px 10px;font-weight:800;cursor:pointer
+}
+#v190HeadBtn{background:#6f42c1;color:white}
+#v190TeacherBtn{background:#0d6efd;color:white}
+#v190RoleLogout{background:#dc3545;color:white}
+.v190-pin-btn{
+  margin:2px!important;padding:5px 8px!important;border:0!important;border-radius:7px!important;
+  background:#1f7a4d!important;color:#fff!important;font-weight:800!important
+}
+.v190-pin-none{background:#9a6700!important}
+#v190TeacherLoginOverlay{
+  position:fixed;inset:0;background:rgba(15,23,42,.62);z-index:100500;display:none;
+  align-items:center;justify-content:center;padding:16px
+}
+#v190TeacherLoginBox{
+  width:min(480px,96vw);background:#fff;border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.28);
+  padding:18px
+}
+#v190TeacherLoginBox h3{margin:0 0 12px;color:#173b6b}
+#v190TeacherLoginBox label{display:block;font-size:12px;font-weight:800;margin:10px 0 4px}
+#v190TeacherLoginBox input{
+  width:100%;padding:10px 11px;border:1px solid #cfd9e6;border-radius:8px;font-size:15px
+}
+#v190TeacherLoginBox .v190-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+#v190TeacherLoginBox button{border:0;border-radius:8px;padding:9px 13px;font-weight:800;cursor:pointer}
+#v190TeacherLoginSubmit{background:#0d6efd;color:white}
+#v190TeacherLoginCancel{background:#edf1f5;color:#334155}
+#v190TeacherLoginMsg{min-height:18px;margin-top:8px;font-size:12px;font-weight:700;color:#b42318}
+.v190-view-only{
+  display:inline-block;padding:4px 8px;border-radius:999px;background:#fff4da;color:#7a5700;font-weight:800
+}
+</style>
+
+<div id="v190TeacherLoginOverlay" aria-hidden="true">
+  <div id="v190TeacherLoginBox">
+    <h3>👩‍🏫 Teacher PIN Login / ಶಿಕ್ಷಕರ PIN ಲಾಗಿನ್</h3>
+    <div style="font-size:12px;color:#5b6b7d;line-height:1.45">
+      Head Teacher ನೀಡಿದ Mobile Number ಮತ್ತು 6-digit PIN ಬಳಸಿ.
+      School password ಶಿಕ್ಷಕರಿಗೆ ಹಂಚಬೇಕಾಗಿಲ್ಲ.
+    </div>
+    <label>Registered Mobile / ನೋಂದಾಯಿತ ಮೊಬೈಲ್</label>
+    <input id="v190TeacherMobile" inputmode="numeric" maxlength="10" placeholder="10 digit mobile number">
+    <label>Teacher PIN / ಶಿಕ್ಷಕರ PIN</label>
+    <input id="v190TeacherPin" inputmode="numeric" maxlength="6" type="password" placeholder="6 digit PIN">
+    <div id="v190TeacherLoginMsg"></div>
+    <div class="v190-actions">
+      <button id="v190TeacherLoginCancel" type="button">Cancel</button>
+      <button id="v190TeacherLoginSubmit" type="button">Login</button>
+    </div>
+  </div>
+</div>
+
+<script id="v190TeacherPinLoginScript">
+(function(){
+'use strict';
+
+window.TFCCE_VERSION='v190';
+
+const SCHOOL_SESSION='TFCCE_V110_SCHOOL_SESSION';
+const SCHOOL_STORE='TFCCE_V110_SCHOOLS';
+const ADMIN_SESSION='TFCCE_V110_ADMIN_SESSION';
+const HEAD_MODE='cce_v107_head_mode';
+const TEACHER_SESSION='TFCCE_V190_TEACHER_SESSION';
+const FAIL_PREFIX='TFCCE_V190_PIN_FAIL_';
+
+const $=id=>document.getElementById(id);
+
+function normU(v){
+  return String(v||'')
+    .replace(/[０-９]/g,function(ch){return String.fromCharCode(ch.charCodeAt(0)-0xFEE0)})
+    .replace(/[\s\-]/g,'')
+    .trim();
+}
+function digits(v){return String(v||'').replace(/\D/g,'')}
+function currentUdise(){
+  try{return normU(sessionStorage.getItem(SCHOOL_SESSION)||window.db?.school?.udise||'')}
+  catch(e){return ''}
+}
+function readSchools(){
+  try{
+    const a=JSON.parse(localStorage.getItem(SCHOOL_STORE)||'[]');
+    return Array.isArray(a)?a:[];
+  }catch(e){return[]}
+}
+function currentSchoolAccount(){
+  const u=currentUdise();
+  return readSchools().find(function(x){return normU(x.udise)===u})||null;
+}
+function ensureTeachers(){
+  if(!window.db)return [];
+  db.teachers=Array.isArray(db.teachers)?db.teachers:[];
+  return db.teachers;
+}
+function teacherSession(){
+  try{
+    const x=JSON.parse(sessionStorage.getItem(TEACHER_SESSION)||'null');
+    if(!x || normU(x.udise)!==currentUdise())return null;
+    const t=ensureTeachers().find(function(y){return String(y.id)===String(x.teacherId)});
+    if(!t || String(t.status||'Active')!=='Active')return null;
+    return {teacher:t,session:x};
+  }catch(e){return null}
+}
+function isHead(){
+  return sessionStorage.getItem(HEAD_MODE)==='1' || sessionStorage.getItem(ADMIN_SESSION)==='1';
+}
+function mode(){
+  if(isHead())return 'HEAD';
+  if(teacherSession())return 'TEACHER';
+  return 'VIEW';
+}
+window.v190AccessMode=mode;
+
+function esc(v){
+  return String(v==null?'':v).replace(/[&<>"']/g,function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+function save(){
+  try{if(typeof window.saveData==='function')window.saveData()}catch(e){}
+}
+function textBytes(s){return new TextEncoder().encode(String(s||''))}
+function hex(buf){
+  return Array.from(new Uint8Array(buf))
+    .map(function(b){return b.toString(16).padStart(2,'0')})
+    .join('');
+}
+function randomHex(n){
+  const a=new Uint8Array(n);
+  crypto.getRandomValues(a);
+  return Array.from(a).map(function(b){return b.toString(16).padStart(2,'0')}).join('');
+}
+async function pinHash(pin,salt,teacherId,udise){
+  const material=await crypto.subtle.importKey('raw',textBytes(pin),'PBKDF2',false,['deriveBits']);
+  const bits=await crypto.subtle.deriveBits({
+    name:'PBKDF2',
+    salt:textBytes('TFCCE|TEACHER|'+normU(udise)+'|'+String(teacherId)+'|'+String(salt)),
+    iterations:150000,
+    hash:'SHA-256'
+  },material,256);
+  return hex(bits);
+}
+function failKey(t){return FAIL_PREFIX+currentUdise()+'_'+String(t.id)}
+function failState(t){
+  try{return JSON.parse(sessionStorage.getItem(failKey(t))||'{"count":0,"until":0}')}
+  catch(e){return {count:0,until:0}}
+}
+function registerFail(t){
+  let f=failState(t);
+  const now=Date.now();
+  if(f.until && now<f.until)return f;
+  f.count=(Number(f.count)||0)+1;
+  if(f.count>=5){f.until=now+10*60*1000;f.count=0}
+  sessionStorage.setItem(failKey(t),JSON.stringify(f));
+  return f;
+}
+function clearFail(t){try{sessionStorage.removeItem(failKey(t))}catch(e){}}
+
+function requireHead(message){
+  if(isHead())return true;
+  alert(message||'Head Teacher Access required.');
+  return false;
+}
+function requireTeacherOrHead(){
+  if(mode()==='HEAD' || mode()==='TEACHER')return true;
+  alert('ಈ ಕೆಲಸ ಮಾಡಲು ಮೊದಲು Teacher PIN Login ಅಥವಾ Head Teacher Access ಮಾಡಿ.');
+  return false;
+}
+function requireHeadOnly(){
+  if(mode()==='HEAD')return true;
+  alert('ಈ ಆಯ್ಕೆ Head Teacherಗೆ ಮಾತ್ರ ಲಭ್ಯ.');
+  return false;
+}
+
+/* ---------------- Global Head Access ---------------- */
+window.v190HeadAccess=function(){
+  if(isHead()){
+    sessionStorage.removeItem(HEAD_MODE);
+    applyRoleUI();
+    return;
+  }
+  if(teacherSession()){
+    alert('ಮೊದಲು Teacher PIN session Logout ಮಾಡಿ.');
+    return;
+  }
+  const school=currentSchoolAccount();
+  if(!school || !String(school.headPin||'').trim()){
+    alert('ಈ browser/deviceನಲ್ಲಿ Head Teacher PIN ಲಭ್ಯವಿಲ್ಲ.\nMaster Admin ಮೂಲಕ school Head PIN set ಮಾಡಬೇಕು.');
+    return;
+  }
+  const entered=(prompt('Master Admin ನೀಡಿದ Head Teacher PIN ನಮೂದಿಸಿ:','')||'').trim();
+  if(entered!==String(school.headPin||'')){
+    alert('ತಪ್ಪಾದ Head Teacher PIN.');
+    return;
+  }
+  sessionStorage.setItem(HEAD_MODE,'1');
+  applyRoleUI();
+  alert('✅ Head Teacher Access ಸಕ್ರಿಯವಾಗಿದೆ.');
+};
+
+/* ---------------- Teacher PIN management ---------------- */
+window.v190SetTeacherPin=async function(id){
+  if(!requireHeadOnly())return;
+  const t=ensureTeachers().find(function(x){return String(x.id)===String(id)});
+  if(!t)return;
+  if(String(t.role||'TEACHER')==='HEAD_TEACHER'){
+    alert('Head Teacherಗೆ ಈಗಿರುವ Head Teacher Access PIN ಬಳಸಲಾಗುತ್ತದೆ.');
+    return;
+  }
+  if(String(t.status||'Active')!=='Active'){
+    alert('Active teacherಗೆ ಮಾತ್ರ PIN set ಮಾಡಬಹುದು.');
+    return;
+  }
+  if(digits(t.mobile).length!==10){
+    alert('ಮೊದಲು ಈ Teacher recordನಲ್ಲಿ ಸರಿಯಾದ 10-digit Mobile Number ನಮೂದಿಸಿ.');
+    return;
+  }
+  const p1=(prompt('6-digit Teacher PIN ನಮೂದಿಸಿ:','')||'').trim();
+  if(!p1)return;
+  if(!/^\d{6}$/.test(p1)){alert('PIN ನಿಖರವಾಗಿ 6 ಅಂಕೆಗಳಾಗಿರಬೇಕು.');return}
+  const p2=(prompt('Teacher PIN ಮತ್ತೆ ನಮೂದಿಸಿ / Confirm:','')||'').trim();
+  if(p1!==p2){alert('PIN ಹೊಂದಿಕೆಯಾಗಲಿಲ್ಲ.');return}
+  const salt=randomHex(16);
+  const hash=await pinHash(p1,salt,t.id,currentUdise());
+  t.pinSalt=salt;
+  t.pinHash=hash;
+  t.pinUpdatedAt=new Date().toISOString();
+  t.pinVersion=1;
+  save();
+  renderTeacherPinButtons();
+  alert('✅ Teacher PIN ಸುರಕ್ಷಿತವಾಗಿ ಉಳಿಸಲಾಗಿದೆ.\n\nTeacherಗೆ Mobile Number ಮತ್ತು PIN ಅನ್ನು ಪ್ರತ್ಯೇಕವಾಗಿ ನೀಡಿ.');
+};
+window.v190RemoveTeacherPin=function(id){
+  if(!requireHeadOnly())return;
+  const t=ensureTeachers().find(function(x){return String(x.id)===String(id)});
+  if(!t)return;
+  if(!confirm('ಈ Teacher PIN access ಅನ್ನು ತೆಗೆದುಹಾಕಬೇಕೇ?'))return;
+  delete t.pinHash;delete t.pinSalt;delete t.pinUpdatedAt;delete t.pinVersion;
+  const ts=teacherSession();
+  if(ts && String(ts.teacher.id)===String(id))sessionStorage.removeItem(TEACHER_SESSION);
+  save();renderTeacherPinButtons();applyRoleUI();
+};
+
+/* ---------------- Teacher Login ---------------- */
+function openTeacherLogin(){
+  if(!currentUdise()){
+    alert('ಮೊದಲು School Login ಅಗತ್ಯ.');
+    return;
+  }
+  if(isHead()){
+    alert('Head Teacher Access ಈಗಾಗಲೇ ಸಕ್ರಿಯವಾಗಿದೆ.');
+    return;
+  }
+  const ov=$('v190TeacherLoginOverlay');
+  if(!ov)return;
+  $('v190TeacherMobile').value='';
+  $('v190TeacherPin').value='';
+  $('v190TeacherLoginMsg').textContent='';
+  ov.style.display='flex';ov.setAttribute('aria-hidden','false');
+  setTimeout(function(){$('v190TeacherMobile')?.focus()},80);
+}
+function closeTeacherLogin(){
+  const ov=$('v190TeacherLoginOverlay');
+  if(ov){ov.style.display='none';ov.setAttribute('aria-hidden','true')}
+}
+window.v190OpenTeacherLogin=openTeacherLogin;
+window.v190TeacherLogout=function(){
+  sessionStorage.removeItem(TEACHER_SESSION);
+  applyRoleUI();
+  try{if(typeof window.showPage==='function')window.showPage('dashboard')}catch(e){}
+};
+
+async function doTeacherLogin(){
+  const mobile=digits($('v190TeacherMobile')?.value).slice(-10);
+  const pin=String($('v190TeacherPin')?.value||'').trim();
+  const msg=$('v190TeacherLoginMsg');
+  if(mobile.length!==10){msg.textContent='10-digit mobile number ನಮೂದಿಸಿ.';return}
+  if(!/^\d{6}$/.test(pin)){msg.textContent='6-digit PIN ನಮೂದಿಸಿ.';return}
+
+  const list=ensureTeachers().filter(function(t){
+    return String(t.status||'Active')==='Active' &&
+           String(t.role||'TEACHER')!=='HEAD_TEACHER' &&
+           digits(t.mobile).slice(-10)===mobile;
+  });
+  const t=list[0];
+  if(!t){msg.textContent='ಈ mobile number Active Teacher listನಲ್ಲಿ ಇಲ್ಲ.';return}
+  if(!t.pinHash || !t.pinSalt){msg.textContent='Head Teacher ಇನ್ನೂ PIN ನೀಡಿಲ್ಲ.';return}
+
+  const f=failState(t);
+  if(f.until && Date.now()<f.until){
+    const mins=Math.ceil((f.until-Date.now())/60000);
+    msg.textContent='ತಪ್ಪು ಪ್ರಯತ್ನಗಳು ಹೆಚ್ಚು. '+mins+' ನಿಮಿಷಗಳ ನಂತರ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.';
+    return;
+  }
+
+  const h=await pinHash(pin,t.pinSalt,t.id,currentUdise());
+  if(h!==String(t.pinHash)){
+    const nf=registerFail(t);
+    msg.textContent=nf.until && Date.now()<nf.until
+      ? '5 ತಪ್ಪು ಪ್ರಯತ್ನಗಳು. 10 ನಿಮಿಷ lock ಆಗಿದೆ.'
+      : 'Teacher PIN ಸರಿಯಾಗಿಲ್ಲ.';
+    return;
+  }
+
+  clearFail(t);
+  sessionStorage.removeItem(HEAD_MODE);
+  sessionStorage.setItem(TEACHER_SESSION,JSON.stringify({
+    teacherId:t.id,udise:currentUdise(),name:t.name||'',mobile:mobile,
+    loginAt:new Date().toISOString()
+  }));
+  closeTeacherLogin();
+  applyRoleUI();
+  alert('✅ Teacher Login successful.\n'+(t.name||'Teacher'));
+}
+
+/* ---------------- Access bar ---------------- */
+function ensureAccessBar(){
+  let bar=$('v190AccessBar');
+  if(bar)return bar;
+
+  const schoolBar=$('v119LoggedSchoolBar');
+  const main=document.querySelector('main');
+  if(!main)return null;
+
+  bar=document.createElement('div');
+  bar.id='v190AccessBar';
+  bar.className='no-print';
+  bar.innerHTML=
+    '<span class="v190-title">🔐 Work Access / ಕೆಲಸದ ಪ್ರವೇಶ:</span>'+
+    '<span id="v190RoleState" class="v190-state"></span>'+
+    '<button id="v190HeadBtn" type="button" onclick="v190HeadAccess()">Head Teacher Access</button>'+
+    '<button id="v190TeacherBtn" type="button" onclick="v190OpenTeacherLogin()">Teacher PIN Login</button>'+
+    '<button id="v190RoleLogout" type="button" style="display:none">Logout Role</button>';
+
+  if(schoolBar && schoolBar.parentNode){
+    schoolBar.parentNode.insertBefore(bar,schoolBar.nextSibling);
+  }else{
+    main.insertBefore(bar,main.firstChild);
+  }
+  $('v190RoleLogout').onclick=function(){
+    if(isHead())sessionStorage.removeItem(HEAD_MODE);
+    sessionStorage.removeItem(TEACHER_SESSION);
+    applyRoleUI();
+  };
+  return bar;
+}
+
+function updateAccessBar(){
+  const bar=ensureAccessBar();if(!bar)return;
+  const st=$('v190RoleState'), hb=$('v190HeadBtn'), tb=$('v190TeacherBtn'), lo=$('v190RoleLogout');
+  if(!currentUdise()){
+    bar.style.display='none';return;
+  }
+  bar.style.display='flex';
+  const m=mode();
+  st.className='v190-state';
+  if(m==='HEAD'){
+    st.textContent='✅ Head Teacher Mode';
+    st.classList.add('head');hb.style.display='none';tb.style.display='none';lo.style.display='';
+  }else if(m==='TEACHER'){
+    const ts=teacherSession();
+    st.textContent='👩‍🏫 Teacher: '+(ts?.teacher?.name||'');
+    st.classList.add('teacher');hb.style.display='none';tb.style.display='none';lo.style.display='';
+  }else{
+    st.innerHTML='<span class="v190-view-only">View Only</span>';
+    hb.style.display='';tb.style.display='';lo.style.display='none';
+  }
+}
+
+/* ---------------- Teacher table PIN controls ---------------- */
+function renderTeacherPinButtons(){
+  const rows=$('v134TeacherRows');
+  if(!rows)return;
+  ensureTeachers();
+
+  Array.from(rows.querySelectorAll('tr')).forEach(function(tr){
+    if(!tr.cells || tr.cells.length<2)return;
+    const name=String(tr.cells[1]?.textContent||'').trim();
+    const mobile=digits(tr.cells[2]?.textContent||'').slice(-10);
+    let t=db.teachers.find(function(x){
+      return String(x.name||'').trim()===name && digits(x.mobile).slice(-10)===mobile;
+    });
+    if(!t)return;
+    const cell=tr.lastElementChild;if(!cell)return;
+
+    Array.from(cell.querySelectorAll('.v190-pin-btn')).forEach(function(b){b.remove()});
+    if(String(t.role||'TEACHER')==='HEAD_TEACHER')return;
+
+    const set=document.createElement('button');
+    set.type='button';
+    set.className='v190-pin-btn '+(t.pinHash?'':'v190-pin-none');
+    set.textContent=t.pinHash?'🔑 Change PIN':'🔑 Set PIN';
+    set.onclick=function(){window.v190SetTeacherPin(t.id)};
+    cell.appendChild(set);
+
+    if(t.pinHash){
+      const rem=document.createElement('button');
+      rem.type='button';rem.className='v190-pin-btn';rem.style.background='#6b7280';
+      rem.textContent='Remove PIN';
+      rem.onclick=function(){window.v190RemoveTeacherPin(t.id)};
+      cell.appendChild(rem);
+    }
+  });
+}
+
+/* ---------------- Work permission UI ---------------- */
+function disableHeadOnlyControls(){
+  const m=mode();
+  const head=m==='HEAD';
+  const work=m==='HEAD'||m==='TEACHER';
+
+  /* Student database: teacher/view can read; only Head can mutate. */
+  [
+    '#studentsCard button[onclick*="addStudent"]',
+    '#students button[onclick*="addStudent"]',
+    '#students button[onclick*="excelFile"]',
+    '#students button[onclick*="v84DeleteSelected"]',
+    '#students button[onclick*="editStudentMaster"]',
+    '#students button[onclick*="openTransfer"]',
+    '#students button[onclick*="v87OpenTC"]'
+  ].forEach(function(sel){
+    document.querySelectorAll(sel).forEach(function(el){el.style.display=head?'':'none'});
+  });
+
+  /* Marks Save: Head or Teacher. Print/Excel/PDF remain visible. */
+  document.querySelectorAll('#marks button[onclick*="saveMarksNow"],#marks910 button[onclick*="saveMarksNow"]').forEach(function(el){
+    el.style.display=work?'':'none';
+  });
+
+  /* Settings mutation is Head-only. */
+  document.querySelectorAll('#settings button[onclick*="saveSettings"],#settings button[onclick*="resetData"]').forEach(function(el){
+    el.style.display=head?'':'none';
+  });
+
+  /* Teachers management controls: Head-only; table stays visible. */
+  ['v134AddTeacher','v134SetHeadEmail'].forEach(function(id){
+    const el=$(id);if(el)el.style.display=head?'':'none';
+  });
+  const rows=$('v134TeacherRows');
+  if(rows){
+    rows.querySelectorAll('button').forEach(function(el){el.style.display=head?'':'none'});
+    if(head)renderTeacherPinButtons();
+  }
+
+  /* Former Student management controls Head-only. Certificate/print/export stay. */
+  ['v107RoleBtn','v106CorrectionBtn','v106AuditBtn','v136OpenOldStudentsForm','v152SyncFormResponses','v152RefreshVerification','v154TestCleanupBtn'].forEach(function(id){
+    const el=$(id);if(el)el.style.display=head?'':'none';
+  });
+  document.querySelectorAll('button').forEach(function(b){
+    const txt=(b.textContent||'').trim();
+    if(/Head Teacher Access|Test Data Cleanup/i.test(txt) && b.id!=='v190HeadBtn'){
+      b.style.display=head?'':'none';
+    }
+  });
+
+  /* Academic year promotion is Head-only. */
+  const promo=$('v175PromotionPanel');if(promo)promo.style.display=head?'':'none';
+}
+
+/* ---------------- Security function guards ---------------- */
+function guardFunction(name,kind){
+  const old=window[name];
+  if(typeof old!=='function' || old.__v190Guarded)return;
+  const f=function(){
+    const ok=(kind==='work')?requireTeacherOrHead():requireHeadOnly();
+    if(!ok)return;
+    return old.apply(this,arguments);
+  };
+  f.__v190Guarded=true;
+  window[name]=f;
+  try{eval(name+'=window["'+name+'"]')}catch(e){}
+}
+
+/* Teacher may save marks. Everything below is Head-only. */
+guardFunction('saveMarksNow','work');
+[
+  'addStudent','deleteStudent','editStudentMaster','importExcel','openTransfer',
+  'v84DeleteSelected','v87OpenTC','saveSettings','resetData',
+  'v137TeacherEdit','v137TeacherAction','v136TeacherAction','v134TeacherAction',
+  'v175PromoteAcademicYear','v175RestoreLatestAcademicArchive',
+  'v106Approve','v106Reject','v106OpenCorrection','v106OpenAudit',
+  'importFormerStudentsExcel'
+].forEach(function(n){guardFunction(n,'head')});
+
+/* Prevent Teacher session from escalating into Head mode via old Former Students control. */
+const oldV107=$('v107RoleBtn');
+window.v190BlockOldHeadEscalation=function(){
+  if(teacherSession()){alert('ಮೊದಲು Teacher PIN session Logout ಮಾಡಿ.');return false}
+  return true;
+};
+
+/* School logout also clears role sessions. */
+const oldSchoolLogout=window.v111SchoolLogout;
+if(typeof oldSchoolLogout==='function'){
+  window.v111SchoolLogout=function(){
+    sessionStorage.removeItem(TEACHER_SESSION);
+    sessionStorage.removeItem(HEAD_MODE);
+    return oldSchoolLogout.apply(this,arguments);
+  };
+}
+
+/* ---------------- Refresh after page renders ---------------- */
+function applyRoleUI(){
+  updateAccessBar();
+  disableHeadOnlyControls();
+  renderTeacherPinButtons();
+
+  /* If transferred/deactivated teacher is currently logged in, end that role session. */
+  const ts=teacherSession();
+  if(!ts && sessionStorage.getItem(TEACHER_SESSION)){
+    sessionStorage.removeItem(TEACHER_SESSION);
+    updateAccessBar();
+  }
+}
+window.v190ApplyRoleUI=applyRoleUI;
+
+const oldShow=window.showPage;
+if(typeof oldShow==='function'){
+  window.showPage=function(){
+    const r=oldShow.apply(this,arguments);
+    setTimeout(applyRoleUI,80);
+    setTimeout(applyRoleUI,400);
+    return r;
+  };
+  try{showPage=window.showPage}catch(e){}
+}
+
+const oldRenderTeachers=window.V134render;
+if(typeof oldRenderTeachers==='function'){
+  window.V134render=function(){
+    const r=oldRenderTeachers.apply(this,arguments);
+    setTimeout(applyRoleUI,30);
+    return r;
+  };
+}
+
+function init(){
+  const cancel=$('v190TeacherLoginCancel');
+  const submit=$('v190TeacherLoginSubmit');
+  if(cancel)cancel.onclick=closeTeacherLogin;
+  if(submit)submit.onclick=doTeacherLogin;
+  $('v190TeacherPin')?.addEventListener('keydown',function(e){if(e.key==='Enter')doTeacherLogin()});
+  $('v190TeacherLoginOverlay')?.addEventListener('click',function(e){if(e.target===this)closeTeacherLogin()});
+
+  ensureAccessBar();
+  applyRoleUI();
+}
+
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded',function(){setTimeout(init,900)});
+}else{
+  setTimeout(init,900);
+}
+window.addEventListener('load',function(){setTimeout(applyRoleUI,1200)});
+setInterval(function(){try{applyRoleUI()}catch(e){}},2500);
+
+})();
+</script>
+
