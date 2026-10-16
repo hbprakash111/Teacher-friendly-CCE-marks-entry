@@ -16749,3 +16749,302 @@ window.v193ApplyFormerStudentRoleLock=applyFormerStudentRoleLock;
 })();
 </script>
 
+
+<!-- =========================================================
+ v194 SMART AUTO CLOUD SYNC
+ - Automatically pushes real pending school-data changes after save.
+ - Keeps local/offline save first; when offline, changes remain queued.
+ - Retries when network returns and while the page stays open.
+ - Manual Test / Sync remains an emergency fallback only.
+ - Conflict guard: auto-push pauses if cloud changed after this device's
+   last known cloud sync, preventing silent overwrite by background sync.
+========================================================= -->
+<script id="v194SmartAutoCloudSync">
+(function(){
+'use strict';
+
+window.TFCCE_VERSION='v194';
+
+const SESSION='TFCCE_V110_SCHOOL_SESSION';
+const QUEUE_DB='TFCCE_SYNC_QUEUE_DB_V1';
+const QUEUE_STORE='queue';
+const FALLBACK_PENDING_PREFIX='TFCCE_PENDING_SYNC_';
+const LAST_SYNC_PREFIX='TFCCE_V182_CLOUD_LAST_SYNC_';
+const TECH_KEY='TFCCE_MASTER_SUPABASE_CONFIG_V1';
+const SCHOOL_STORE='TFCCE_V110_SCHOOLS';
+const SESSION_SECRET='TFCCE_V182_CLOUD_SECRET';
+const DEFAULT_URL='https://ksbqlqheunwqdybeetjg.supabase.co';
+const DEFAULT_KEY='sb_publishable_okeyyRTgyfc-Hx9c1frZsA_uK30BsOm';
+
+let qdb=null;
+let timer=null;
+let busy=false;
+let retryMs=4500;
+let lastAttempt=0;
+
+function normU(v){
+  return String(v||'')
+    .replace(/[０-９]/g,function(ch){return String.fromCharCode(ch.charCodeAt(0)-0xFEE0)})
+    .replace(/[\s\-]/g,'')
+    .trim();
+}
+function normBase(url){
+  return String(url||'').trim().replace(/\/+$/,'').replace(/\/rest\/v1$/,'');
+}
+function currentUdise(){
+  try{return normU(sessionStorage.getItem(SESSION)||window.db?.school?.udise||'')}
+  catch(e){return ''}
+}
+function epoch(v){
+  const n=Date.parse(String(v||''));
+  return Number.isFinite(n)?n:0;
+}
+function lastSyncEpoch(u){
+  try{return epoch(localStorage.getItem(LAST_SYNC_PREFIX+normU(u))||'')}
+  catch(e){return 0}
+}
+function tech(){
+  try{
+    const x=JSON.parse(localStorage.getItem(TECH_KEY)||'null');
+    if(x&&x.url&&x.key)return {url:normBase(x.url),key:String(x.key).trim()};
+  }catch(e){}
+  try{
+    const u=normBase(window.db?.supabase?.url||'');
+    const k=String(window.db?.supabase?.key||'').trim();
+    if(u&&k)return {url:u,key:k};
+  }catch(e){}
+  return {url:DEFAULT_URL,key:DEFAULT_KEY};
+}
+function headers(apiKey,extra){
+  const k=String(apiKey||'').trim();
+  const h={apikey:k,'Content-Type':'application/json'};
+  if(k.startsWith('eyJ'))h.Authorization='Bearer '+k;
+  return Object.assign(h,extra||{});
+}
+function accounts(){
+  try{
+    const a=JSON.parse(localStorage.getItem(SCHOOL_STORE)||'[]');
+    return Array.isArray(a)?a:[];
+  }catch(e){return[]}
+}
+function textBytes(s){return new TextEncoder().encode(String(s||''))}
+function hex(buf){return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0')}).join('')}
+async function deriveSchoolSecret(u,password){
+  const base=await crypto.subtle.importKey('raw',textBytes(password),'PBKDF2',false,['deriveBits']);
+  const bits=await crypto.subtle.deriveBits({
+    name:'PBKDF2',
+    salt:textBytes('TFCCE|SCHOOL|'+normU(u)),
+    iterations:120000,
+    hash:'SHA-256'
+  },base,256);
+  return hex(bits);
+}
+async function secretFor(u){
+  try{
+    const x=JSON.parse(sessionStorage.getItem(SESSION_SECRET)||'null');
+    if(x&&normU(x.udise)===normU(u)&&x.secret)return String(x.secret);
+  }catch(e){}
+  const n=normU(u);
+  const a=accounts().find(function(r){return normU(r.udise)===n});
+  const p=String(a?.password||'').trim();
+  if(!p)return '';
+  try{
+    const s=await deriveSchoolSecret(n,p);
+    sessionStorage.setItem(SESSION_SECRET,JSON.stringify({udise:n,secret:s}));
+    return s;
+  }catch(e){return ''}
+}
+
+function openQueueDb(){
+  return new Promise(function(resolve,reject){
+    if(qdb)return resolve(qdb);
+    if(!('indexedDB' in window))return reject(new Error('IndexedDB unavailable'));
+    const req=indexedDB.open(QUEUE_DB,1);
+    req.onsuccess=function(){qdb=req.result;resolve(qdb)};
+    req.onerror=function(){reject(req.error)};
+    req.onupgradeneeded=function(){
+      const d=req.result;
+      if(!d.objectStoreNames.contains(QUEUE_STORE)){
+        const st=d.createObjectStore(QUEUE_STORE,{keyPath:'id',autoIncrement:true});
+        st.createIndex('udise','udise',{unique:false});
+        st.createIndex('createdAt','createdAt',{unique:false});
+        st.createIndex('status','status',{unique:false});
+      }
+    };
+  });
+}
+async function pendingCount(u){
+  const n=normU(u);
+  if(!n)return 0;
+  let count=0;
+  try{
+    const d=await openQueueDb();
+    count=await new Promise(function(resolve){
+      const tx=d.transaction(QUEUE_STORE,'readonly');
+      const req=tx.objectStore(QUEUE_STORE).index('udise').getAll(IDBKeyRange.only(n));
+      req.onsuccess=function(){resolve((req.result||[]).filter(function(r){return r.status==='pending'}).length)};
+      req.onerror=function(){resolve(0)};
+    });
+  }catch(e){}
+  if(!count){
+    try{if(localStorage.getItem(FALLBACK_PENDING_PREFIX+n))count=1}catch(e){}
+  }
+  return count;
+}
+function refreshPendingUi(n){
+  const b=document.getElementById('v129PendingBadge');
+  const t=document.getElementById('v129SyncText');
+  const c=document.getElementById('v130Pending');
+  if(b){b.textContent=String(n);b.className=n===0?'zero':''}
+  if(t)t.textContent=n===0?'No pending changes':(n+' change set waiting for cloud sync');
+  if(c)c.textContent=String(n);
+}
+function setPill(text,state){
+  const p=document.getElementById('v187SmartCloudPill');
+  if(p){p.textContent=text;p.className=state||''}
+  const s=document.getElementById('v182CloudStatus');
+  if(s)s.textContent=text;
+}
+
+async function cloudUpdatedEpoch(u,secret){
+  const cfg=tech();
+  if(!cfg.url||!cfg.key)return 0;
+  const id='school_'+normU(u);
+  const q=cfg.url+'/rest/v1/cce_app_data?id=eq.'+encodeURIComponent(id)+'&select=updated_at';
+  const r=await fetch(q,{method:'GET',cache:'no-store',headers:headers(cfg.key,{'x-school-sync-key':secret})});
+  if(!r.ok)throw new Error(await r.text());
+  const rows=await r.json();
+  if(!Array.isArray(rows)||!rows.length)return 0;
+  return epoch(rows[0].updated_at);
+}
+
+function schedule(delay,reason){
+  clearTimeout(timer);
+  timer=setTimeout(function(){autoSync(reason||'scheduled')},Math.max(200,Number(delay)||900));
+}
+
+async function autoSync(reason){
+  if(busy)return false;
+  const u=currentUdise();
+  if(!u)return false;
+
+  const pending=await pendingCount(u);
+  refreshPendingUi(pending);
+  if(pending===0){
+    retryMs=4500;
+    setPill('☁ Smart Cloud: Up to date','ok');
+    return true;
+  }
+
+  if(!navigator.onLine){
+    setPill('☁ Smart Cloud: Offline – queued','warn');
+    return false;
+  }
+  if(typeof window.v131SyncCurrentSchool!=='function'){
+    setPill('☁ Smart Cloud: Auto sync unavailable','bad');
+    return false;
+  }
+
+  /* Avoid very tight duplicate attempts from several save/render callbacks. */
+  if(Date.now()-lastAttempt<700)return false;
+  lastAttempt=Date.now();
+  busy=true;
+  setPill('☁ Smart Cloud: Auto syncing…','');
+
+  try{
+    const secret=await secretFor(u);
+    if(!secret){
+      setPill('☁ Smart Cloud: Login needed','warn');
+      return false;
+    }
+
+    /* Conflict guard: if another device changed cloud after this device's last
+       known cloud sync, do not silently overwrite it in the background. */
+    let cloudTime=0;
+    try{cloudTime=await cloudUpdatedEpoch(u,secret)}catch(e){
+      setPill('☁ Smart Cloud: Network retry pending','warn');
+      schedule(retryMs,'preflight-retry');
+      retryMs=Math.min(retryMs*1.7,60000);
+      return false;
+    }
+    const localLast=lastSyncEpoch(u);
+    if(cloudTime && (!localLast || cloudTime>localLast+1200)){
+      setPill('☁ Smart Cloud: Cloud changed – review needed','warn');
+      return false;
+    }
+
+    const ok=await window.v131SyncCurrentSchool();
+    await new Promise(function(resolve){setTimeout(resolve,450)});
+    const left=await pendingCount(u);
+    refreshPendingUi(left);
+
+    if(ok===true && left===0){
+      retryMs=4500;
+      setPill('☁ Smart Cloud: Auto synced','ok');
+      try{if(typeof window.v188ReconcilePending==='function')window.v188ReconcilePending()}catch(e){}
+      return true;
+    }
+
+    setPill('☁ Smart Cloud: Retry pending','warn');
+    schedule(retryMs,'retry');
+    retryMs=Math.min(retryMs*1.7,60000);
+    return false;
+  }catch(e){
+    console.warn('v194 auto cloud sync',e);
+    setPill('☁ Smart Cloud: Retry pending','warn');
+    schedule(retryMs,'exception-retry');
+    retryMs=Math.min(retryMs*1.7,60000);
+    return false;
+  }finally{
+    busy=false;
+  }
+}
+
+/* Last save wrapper: v189 already filters no-op saves. We do not push here
+   immediately; v129 first records the latest pending snapshot, then v194
+   checks the queue and sends it after a short debounce. */
+const previousSave=window.saveData;
+if(typeof previousSave==='function'){
+  window.saveData=saveData=function(){
+    const r=previousSave.apply(this,arguments);
+    if(r!==false && currentUdise())schedule(1100,'save');
+    return r;
+  };
+}
+
+/* Retry automatically after reconnect; no user action required. */
+window.addEventListener('online',function(){
+  retryMs=2500;
+  setPill('☁ Smart Cloud: Reconnecting…','');
+  schedule(900,'online');
+});
+window.addEventListener('offline',function(){
+  setPill('☁ Smart Cloud: Offline – queued','warn');
+});
+document.addEventListener('visibilitychange',function(){
+  if(document.visibilityState==='visible')schedule(800,'visible');
+});
+window.addEventListener('focus',function(){schedule(700,'focus')});
+
+/* Low-frequency safety retry. It makes no network call when nothing is pending. */
+setInterval(function(){
+  if(currentUdise())autoSync('interval');
+},15000);
+
+function init(){
+  const u=currentUdise();
+  if(!u)return;
+  setTimeout(async function(){
+    const n=await pendingCount(u);
+    refreshPendingUi(n);
+    if(n>0)schedule(900,'startup-pending');
+    else setPill('☁ Smart Cloud: Up to date','ok');
+  },1800);
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(init,900)});
+else setTimeout(init,900);
+
+window.v194AutoCloudSync=function(){return autoSync('manual-auto')};
+
+})();
+</script>
