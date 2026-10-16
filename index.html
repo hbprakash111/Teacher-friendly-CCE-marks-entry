@@ -16147,3 +16147,92 @@ setInterval(function(){try{applyRoleUI()}catch(e){}},2500);
 })();
 </script>
 
+
+<!-- =========================================================
+ v191 ROLE LOGOUT FIX
+ Fix:
+ - "Logout Role" now clears BOTH Head Teacher role session and
+   temporary Master Admin session.
+ - After logout the page returns to View Only mode correctly.
+ - Head Teacher Access can then be tested using the school's Head PIN.
+========================================================= -->
+<script id="v191RoleLogoutFix">
+(function(){
+'use strict';
+
+window.TFCCE_VERSION='v191';
+
+const ADMIN_SESSION='TFCCE_V110_ADMIN_SESSION';
+const HEAD_MODE='cce_v107_head_mode';
+const TEACHER_SESSION='TFCCE_V190_TEACHER_SESSION';
+
+function clearRoleSessions(){
+  try{sessionStorage.removeItem(ADMIN_SESSION)}catch(e){}
+  try{sessionStorage.removeItem(HEAD_MODE)}catch(e){}
+  try{sessionStorage.removeItem(TEACHER_SESSION)}catch(e){}
+}
+
+window.v191LogoutRole=function(){
+  clearRoleSessions();
+  try{
+    if(typeof window.v190ApplyRoleUI==='function'){
+      window.v190ApplyRoleUI();
+    }
+  }catch(e){}
+  try{
+    if(typeof window.showPage==='function'){
+      window.showPage('dashboard');
+    }
+  }catch(e){}
+  setTimeout(function(){
+    try{
+      if(typeof window.v190ApplyRoleUI==='function'){
+        window.v190ApplyRoleUI();
+      }
+    }catch(e){}
+  },100);
+};
+
+/* Replace Head Teacher Access toggle so a temporary Master Admin
+   session does not keep Head Teacher Mode stuck ON. */
+const previousHeadAccess=window.v190HeadAccess;
+if(typeof previousHeadAccess==='function'){
+  window.v190HeadAccess=function(){
+    const headOn=sessionStorage.getItem(HEAD_MODE)==='1';
+    const adminOn=sessionStorage.getItem(ADMIN_SESSION)==='1';
+
+    if(headOn || adminOn){
+      clearRoleSessions();
+      try{
+        if(typeof window.v190ApplyRoleUI==='function'){
+          window.v190ApplyRoleUI();
+        }
+      }catch(e){}
+      return;
+    }
+
+    return previousHeadAccess.apply(this,arguments);
+  };
+}
+
+/* Keep the visible Logout Role button attached to the corrected action,
+   even if other page rendering code rebuilds or touches the access bar. */
+function bindLogout(){
+  const b=document.getElementById('v190RoleLogout');
+  if(!b)return;
+  b.onclick=window.v191LogoutRole;
+}
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded',function(){
+    setTimeout(bindLogout,1000);
+    setTimeout(bindLogout,2200);
+  });
+}else{
+  setTimeout(bindLogout,600);
+}
+window.addEventListener('load',function(){setTimeout(bindLogout,1200)});
+setInterval(bindLogout,2000);
+
+})();
+</script>
+
