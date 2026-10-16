@@ -16571,3 +16571,181 @@ setInterval(function(){
 })();
 </script>
 
+
+<!-- =========================================================
+ v193 FORMER STUDENTS PERMISSION LOCK
+ User requirement:
+ - Teacher may use Former Students in certificate/read-only mode.
+ - Teacher must NOT edit/correct/approve/reject/delete/sync pending records.
+ - Pending Verification management remains Head Teacher only.
+ - Student Database teacher edit behavior is intentionally unchanged.
+========================================================= -->
+
+<style id="v193FormerStudentsPermissionStyles">
+body.v193-teacher-role #v141VerificationCard .v141-top,
+body.v193-teacher-role #v141VerificationCard .v141-tablewrap,
+body.v193-teacher-role #v141VerificationCard .v141-note{
+  display:none !important;
+}
+body.v193-teacher-role #v141VerificationCard{
+  padding:10px 12px !important;
+  opacity:.78;
+}
+body.v193-teacher-role #v141VerificationCard h3::after{
+  content:" — Head Teacher only";
+  font-size:12px;
+  font-weight:700;
+  color:#7a5a00;
+}
+</style>
+
+<script id="v193FormerStudentsPermissionScript">
+(function(){
+'use strict';
+
+window.TFCCE_VERSION='v193';
+
+function accessMode(){
+  try{
+    if(typeof window.v190AccessMode==='function'){
+      return window.v190AccessMode();
+    }
+  }catch(e){}
+  return 'VIEW';
+}
+
+function isHead(){ return accessMode()==='HEAD'; }
+function isTeacher(){ return accessMode()==='TEACHER'; }
+
+function headOnlyMessage(){
+  alert('ಈ Former Students management ಆಯ್ಕೆ Head Teacherಗೆ ಮಾತ್ರ ಲಭ್ಯ.');
+}
+
+function applyFormerStudentRoleLock(){
+  const m=accessMode();
+
+  document.body.classList.toggle('v193-teacher-role',m==='TEACHER');
+
+  const card=document.getElementById('v141VerificationCard');
+  if(card){
+    if(m==='TEACHER'){
+      card.style.display='';
+      card.querySelectorAll('button').forEach(function(b){
+        b.disabled=true;
+        b.style.display='none';
+      });
+    }else{
+      card.style.display='';
+      if(m==='HEAD'){
+        card.querySelectorAll('button').forEach(function(b){
+          b.disabled=false;
+          b.style.display='';
+        });
+      }
+    }
+  }
+
+  /* Legacy/current Former Students management controls: Head only. */
+  [
+    'v141OpenForm',
+    'v141Refresh',
+    'v144SyncNow',
+    'v136OpenOldStudentsForm',
+    'v152SyncFormResponses',
+    'v152RefreshVerification',
+    'v154TestCleanupBtn',
+    'v106CorrectionBtn',
+    'v106AuditBtn'
+  ].forEach(function(id){
+    const el=document.getElementById(id);
+    if(!el)return;
+    if(m==='HEAD'){
+      el.style.display='';
+      el.disabled=false;
+    }else if(m==='TEACHER'){
+      el.style.display='none';
+      el.disabled=true;
+    }
+  });
+
+  /* Any pending verification row actions are Head-only. */
+  document.querySelectorAll('#v141VerifyRows button').forEach(function(b){
+    if(m==='HEAD'){
+      b.style.display='';
+      b.disabled=false;
+    }else{
+      b.style.display='none';
+      b.disabled=true;
+    }
+  });
+
+  /* Keep Teacher-facing certificate/read-only tools visible. */
+  if(m==='TEACHER'){
+    document.querySelectorAll('#formerStudents button,#formerStudentsPage button').forEach(function(b){
+      const txt=(b.textContent||'').trim();
+      if(/Print|Export Excel|Certificate|Cert/i.test(txt)){
+        b.style.display='';
+        b.disabled=false;
+      }
+    });
+  }
+}
+
+/* Guard the actual management functions too, not only the buttons. */
+function wrapHeadOnly(name){
+  const old=window[name];
+  if(typeof old!=='function' || old.__v193HeadOnly)return;
+  const wrapped=function(){
+    if(!isHead()){
+      headOnlyMessage();
+      return;
+    }
+    return old.apply(this,arguments);
+  };
+  wrapped.__v193HeadOnly=true;
+  window[name]=wrapped;
+  try{ eval(name+'=window["'+name+'"]'); }catch(e){}
+}
+
+[
+  'v141VerifyAction',
+  'v150SyncFormerStudentResponses',
+  'v106Approve',
+  'v106Reject',
+  'v106OpenCorrection',
+  'v106OpenAudit',
+  'importFormerStudentsExcel'
+].forEach(wrapHeadOnly);
+
+/* Re-apply after navigation/render because older versions rebuild this UI. */
+const oldShow=window.showPage;
+if(typeof oldShow==='function'){
+  window.showPage=function(){
+    const r=oldShow.apply(this,arguments);
+    setTimeout(applyFormerStudentRoleLock,80);
+    setTimeout(applyFormerStudentRoleLock,450);
+    return r;
+  };
+  try{ showPage=window.showPage; }catch(e){}
+}
+
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded',function(){
+    setTimeout(applyFormerStudentRoleLock,900);
+    setTimeout(applyFormerStudentRoleLock,1800);
+  });
+}else{
+  setTimeout(applyFormerStudentRoleLock,700);
+}
+window.addEventListener('load',function(){
+  setTimeout(applyFormerStudentRoleLock,1200);
+});
+setInterval(function(){
+  try{ applyFormerStudentRoleLock(); }catch(e){}
+},1800);
+
+window.v193ApplyFormerStudentRoleLock=applyFormerStudentRoleLock;
+
+})();
+</script>
+
