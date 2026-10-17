@@ -17468,8 +17468,10 @@ window.importExcel=function(event){
       });
       if(!added&&!updated){alert('Import ಮಾಡಲು ಮಾನ್ಯ ವಿದ್ಯಾರ್ಥಿ ದಾಖಲೆಗಳು ಸಿಗಲಿಲ್ಲ.');return}
       if(typeof saveData==='function')saveData();
+      try{if(typeof window.v197MarkSchoolDirty==='function')window.v197MarkSchoolDirty('udise-plus-excel-import')}catch(_e){}
       try{if(typeof renderStudents==='function')renderStudents()}catch(_e){}
       try{if(typeof updateDashboard==='function')updateDashboard();else if(typeof v99RenderDashboard==='function')v99RenderDashboard()}catch(_e){}
+      try{setTimeout(function(){if(typeof window.v194AutoCloudSync==='function')window.v194AutoCloudSync();},700)}catch(_e){}
       alert('✅ UDISE Plus Smart Import ಪೂರ್ಣಗೊಂಡಿದೆ.\nHeader Row: '+(h+1)+(meta.udise?'\nUDISE: '+meta.udise:'')+(meta.year?'\nYear: '+meta.year:'')+'\n\nAdded: '+added+'\nUpdated: '+updated+'\nSkipped: '+skipped+'\n\nMapped: Class, Section, Name, DOB, Gender, PEN, Student State Code→SATS, Father/Mother, Category, CWSN ಮತ್ತು Aadhaar metadata.');
     }catch(err){console.error('v196 UDISE import',err);alert('Excel Import Error: '+(err&&err.message?err.message:String(err)))}
     finally{if(input)input.value=''}
@@ -17494,4 +17496,363 @@ const oldShow=window.showPage;if(typeof oldShow==='function'){
 window.v196ApplyStudentImportUI=applyUI;
 })();
 
+</script>
+
+
+<!-- =========================================================
+ v197 BULK IMPORT CLOUD SYNC + SAFE DOWNLOADED BACKUP RECOVERY
+ - Explicitly marks bulk Excel imports as unsynced local changes.
+ - Protects freshly imported/restored local data from an older cloud copy.
+ - Immediately starts v194 Smart Auto Cloud Sync when online.
+ - Adds Head-Teacher-only recovery from a downloaded JSON backup.
+========================================================= -->
+<style id="v197CloudRecoveryStyle">
+#v197RestoreDownloadedBtn{background:#7c3aed!important;color:#fff!important;font-weight:800!important;margin-left:8px!important}
+#v197RecoveryNote{margin:8px 0;padding:8px 10px;border-left:4px solid #7c3aed;background:#f7f3ff;border-radius:7px;font-size:12px;color:#4b3b65}
+</style>
+<input id="v197RestoreFile" type="file" accept=".json,application/json" style="display:none">
+<script id="v197BulkImportCloudSyncRecoveryFix">
+(function(){
+'use strict';
+window.TFCCE_VERSION='v197';
+
+const SESSION='TFCCE_V110_SCHOOL_SESSION';
+const LOCAL_PREFIX='TFCCE_SCHOOL_DB_V1_';
+const LAST_SYNC_PREFIX='TFCCE_V182_CLOUD_LAST_SYNC_';
+const FALLBACK_PENDING_PREFIX='TFCCE_PENDING_SYNC_';
+const HEAD_MODE='cce_v107_head_mode';
+const ADMIN_SESSION='TFCCE_V110_ADMIN_SESSION';
+
+function normU(v){
+  return String(v||'').replace(/[０-９]/g,function(ch){return String.fromCharCode(ch.charCodeAt(0)-0xFEE0)}).replace(/[\s\-]/g,'').trim();
+}
+function currentUdise(){
+  try{return normU(sessionStorage.getItem(SESSION)||window.db?.school?.udise||'')}catch(e){return ''}
+}
+function isHead(){
+  try{return sessionStorage.getItem(HEAD_MODE)==='1'||sessionStorage.getItem(ADMIN_SESSION)==='1'}catch(e){return false}
+}
+function cloneDb(){
+  try{return JSON.parse(JSON.stringify(window.db||{}))}catch(e){return {}}
+}
+function studentCount(d){
+  let n=0;
+  try{
+    const cs=d&&d.classes||{};
+    Object.keys(cs).forEach(function(c){
+      Object.keys(cs[c]||{}).forEach(function(s){
+        n+=Array.isArray(cs[c][s]?.students)?cs[c][s].students.length:0;
+      });
+    });
+  }catch(e){}
+  return n;
+}
+function setPendingUi(){
+  try{const b=document.getElementById('v129PendingBadge');if(b){b.textContent='1';b.className=''}}catch(e){}
+  try{const t=document.getElementById('v129SyncText');if(t)t.textContent='1 change set waiting for cloud sync'}catch(e){}
+  try{const c=document.getElementById('v130Pending');if(c)c.textContent='1'}catch(e){}
+  try{const p=document.getElementById('v187SmartCloudPill');if(p){p.textContent='☁ Smart Cloud: Local changes pending';p.className='warn'}}catch(e){}
+}
+
+/* Mark a bulk local change in a way both v187 and v194 understand.
+   The local last-sync guard is set slightly before the pending timestamp:
+   - stale/older cloud cannot overwrite fresh local data;
+   - pending state remains live and triggers auto-push;
+   - after successful cloud push, normal v182/v187/v188 logic replaces these markers. */
+window.v197MarkSchoolDirty=function(reason){
+  const u=currentUdise();
+  if(!u)return false;
+  const now=Date.now();
+  const guardStamp=new Date(now).toISOString();
+  const pendingStamp=new Date(now+3000).toISOString();
+  try{localStorage.setItem(LAST_SYNC_PREFIX+u,guardStamp)}catch(e){}
+  try{
+    localStorage.setItem(FALLBACK_PENDING_PREFIX+u,JSON.stringify({
+      udise:u,createdAt:pendingStamp,reason:reason||'bulk-change',status:'pending',data:cloneDb()
+    }));
+  }catch(e){}
+  setPendingUi();
+  try{
+    setTimeout(function(){if(typeof window.v194AutoCloudSync==='function')window.v194AutoCloudSync()},650);
+    setTimeout(function(){if(typeof window.v194AutoCloudSync==='function')window.v194AutoCloudSync()},2600);
+  }catch(e){}
+  return true;
+};
+
+window.v197RestoreDownloadedBackup=function(file){
+  if(!file)return;
+  if(!isHead()){
+    alert('Downloaded Backup Restore ಆಯ್ಕೆ Head Teacherಗೆ ಮಾತ್ರ ಲಭ್ಯ. ಮೊದಲು Head Teacher Access ಮಾಡಿ.');
+    return;
+  }
+  const u=currentUdise();
+  if(!u){alert('ಮೊದಲು School Login ಮಾಡಿ.');return}
+  const r=new FileReader();
+  r.onload=function(){
+    try{
+      const d=JSON.parse(r.result);
+      if(!d||typeof d!=='object')throw new Error('Invalid JSON');
+      const backupUdise=normU(d?.school?.udise||d?.school?.dise||'');
+      if(backupUdise && backupUdise!==u){
+        alert('⚠️ Backup UDISE mismatch.\nBackup: '+backupUdise+'\nLogged-in School: '+u+'\n\nRestore ನಿಲ್ಲಿಸಲಾಗಿದೆ.');
+        return;
+      }
+      const n=studentCount(d);
+      if(n<=0){alert('ಈ downloaded backupನಲ್ಲಿ student records ಇಲ್ಲ. Restore ಮಾಡಲಾಗುವುದಿಲ್ಲ.');return}
+      if(!confirm('ಈ downloaded backup restore ಮಾಡಬೇಕೇ?\n\nStudents: '+n+'\n\nRestore ಆದ ನಂತರ Smart Cloud Sync ಸ್ವಯಂಚಾಲಿತವಾಗಿ ಆರಂಭವಾಗುತ್ತದೆ.'))return;
+      d.school=d.school||{};d.school.udise=u;
+      try{localStorage.setItem('TFCCE_V197_BEFORE_RESTORE_'+u+'_'+Date.now(),localStorage.getItem(LOCAL_PREFIX+u)||'')}catch(e){}
+      localStorage.setItem(LOCAL_PREFIX+u,JSON.stringify(d));
+      try{window.db=d}catch(e){}
+      try{db=d}catch(e){}
+      window.v197MarkSchoolDirty('downloaded-backup-restore');
+      try{if(typeof updateDashboard==='function')updateDashboard();else if(typeof v99RenderDashboard==='function')v99RenderDashboard()}catch(e){}
+      try{if(typeof renderStudents==='function')renderStudents()}catch(e){}
+      alert('✅ Downloaded backup restore ಆಗಿದೆ.\nStudents: '+n+'\n\nCloud Sync ಈಗ ಸ್ವಯಂಚಾಲಿತವಾಗಿ ನಡೆಯುತ್ತದೆ. 10–20 ಸೆಕೆಂಡ್ ನಂತರ Dashboard ಪರಿಶೀಲಿಸಿ.');
+      setTimeout(function(){location.reload()},3200);
+    }catch(e){alert('Backup restore ಆಗಲಿಲ್ಲ: '+(e&&e.message?e.message:String(e)))}
+  };
+  r.readAsText(file);
+};
+
+function mountRecovery(){
+  const inp=document.getElementById('v197RestoreFile');
+  if(inp&&!inp.__v197){
+    inp.__v197=true;
+    inp.addEventListener('change',function(){
+      const f=this.files&&this.files[0];
+      if(f)window.v197RestoreDownloadedBackup(f);
+      this.value='';
+    });
+  }
+  if(document.getElementById('v197RestoreDownloadedBtn'))return;
+  const current=document.getElementById('v185CurrentBackupBtn');
+  const recovery=document.getElementById('v184RecoveryBtn');
+  const anchor=current||recovery;
+  if(!anchor||!anchor.parentNode)return;
+  const b=document.createElement('button');
+  b.id='v197RestoreDownloadedBtn';
+  b.type='button';
+  b.className='btn no-print';
+  b.textContent='⬆ Restore Downloaded Backup';
+  b.onclick=function(){
+    if(!isHead()){alert('ಮೊದಲು Head Teacher Access ಮಾಡಿ.');return}
+    document.getElementById('v197RestoreFile')?.click();
+  };
+  anchor.parentNode.insertBefore(b,anchor.nextSibling);
+  const note=document.createElement('div');
+  note.id='v197RecoveryNote';
+  note.className='no-print';
+  note.innerHTML='<b>v197 Safe Recovery:</b> Bulk Excel Import ಅಥವಾ downloaded backup restore ಆದಾಗ data ಮೊದಲು ಈ deviceನಲ್ಲಿ ಸುರಕ್ಷಿತವಾಗಿ ಉಳಿದು, ನಂತರ Smart Cloudಗೆ auto-sync ಆಗುತ್ತದೆ.';
+  anchor.parentNode.parentNode?.appendChild(note);
+}
+
+function init(){
+  mountRecovery();
+  const u=currentUdise();
+  if(u){
+    try{
+      const raw=localStorage.getItem(FALLBACK_PENDING_PREFIX+u);
+      if(raw)setPendingUi();
+    }catch(e){}
+  }
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(init,1000)});else setTimeout(init,700);
+window.addEventListener('load',function(){setTimeout(mountRecovery,1200)});
+setInterval(function(){try{mountRecovery()}catch(e){}},2500);
+
+})();
+</script>
+
+
+<!-- =========================================================
+ v198 CROSS-BROWSER HEAD TEACHER PIN CLOUD VERIFIER FIX
+ - Head Teacher PIN verifier is synced school-wise to secure cloud.
+ - Raw Head PIN is NOT written to cloud.
+ - A different browser/device can validate the same school Head PIN
+   after School Login, using the cloud verifier.
+ - Existing v178 local Head PIN is auto-migrated when possible.
+========================================================== -->
+<script id="v198CrossBrowserHeadPinFix">
+(function(){
+'use strict';
+window.TFCCE_VERSION='v198';
+window.V198_CROSS_BROWSER_HEAD_PIN=true;
+
+const SCHOOL_SESSION='TFCCE_V110_SCHOOL_SESSION';
+const SCHOOL_STORE='TFCCE_V110_SCHOOLS';
+const ADMIN_SESSION='TFCCE_V110_ADMIN_SESSION';
+const HEAD_MODE='cce_v107_head_mode';
+const TEACHER_SESSION='TFCCE_V190_TEACHER_SESSION';
+const TECH_KEY='TFCCE_MASTER_SUPABASE_CONFIG_V1';
+const SESSION_SECRET='TFCCE_V182_CLOUD_SECRET';
+const DEFAULT_URL='https://ksbqlqheunwqdybeetjg.supabase.co';
+const DEFAULT_KEY='sb_publishable_okeyyRTgyfc-Hx9c1frZsA_uK30BsOm';
+
+function normU(v){
+  return String(v||'')
+    .replace(/[０-９]/g,function(ch){return String.fromCharCode(ch.charCodeAt(0)-0xFEE0)})
+    .replace(/[\s\-]/g,'').trim();
+}
+function normBase(url){return String(url||'').trim().replace(/\/+$/,'').replace(/\/rest\/v1$/,'')}
+function readSchools(){
+  try{const a=JSON.parse(localStorage.getItem(SCHOOL_STORE)||'[]');return Array.isArray(a)?a:[]}catch(e){return[]}
+}
+function writeSchools(a){try{localStorage.setItem(SCHOOL_STORE,JSON.stringify(a))}catch(e){}}
+function currentUdise(){
+  try{return normU(sessionStorage.getItem(SCHOOL_SESSION)||window.db?.school?.udise||'')}catch(e){return''}
+}
+function schoolRec(u){const n=normU(u);return readSchools().find(function(x){return normU(x.udise)===n})||null}
+function saveSchoolFields(u,fields){
+  const n=normU(u); let a=readSchools(); const i=a.findIndex(function(x){return normU(x.udise)===n});
+  if(i<0)return;
+  a[i]=Object.assign({},a[i],fields||{}); writeSchools(a);
+}
+function tech(){
+  try{const x=JSON.parse(localStorage.getItem(TECH_KEY)||'null');if(x&&x.url&&x.key)return{url:normBase(x.url),key:String(x.key).trim()}}catch(e){}
+  try{const u=normBase(window.db?.supabase?.url||'');const k=String(window.db?.supabase?.key||'').trim();if(u&&k)return{url:u,key:k}}catch(e){}
+  return{url:DEFAULT_URL,key:DEFAULT_KEY};
+}
+function headers(apiKey,extra){
+  const k=String(apiKey||'').trim(); const h={apikey:k,'Content-Type':'application/json'};
+  if(k.startsWith('eyJ'))h.Authorization='Bearer '+k;
+  return Object.assign(h,extra||{});
+}
+function textBytes(s){return new TextEncoder().encode(String(s||''))}
+function hex(buf){return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0')}).join('')}
+async function sha256Hex(s){return hex(await crypto.subtle.digest('SHA-256',textBytes(s)))}
+async function deriveSchoolSecret(u,password){
+  const base=await crypto.subtle.importKey('raw',textBytes(password),'PBKDF2',false,['deriveBits']);
+  const bits=await crypto.subtle.deriveBits({name:'PBKDF2',salt:textBytes('TFCCE|SCHOOL|'+normU(u)),iterations:120000,hash:'SHA-256'},base,256);
+  return hex(bits);
+}
+async function headVerifier(u,pin){
+  const base=await crypto.subtle.importKey('raw',textBytes(String(pin||'')),'PBKDF2',false,['deriveBits']);
+  const bits=await crypto.subtle.deriveBits({name:'PBKDF2',salt:textBytes('TFCCE|HEAD|'+normU(u)),iterations:150000,hash:'SHA-256'},base,256);
+  return hex(bits);
+}
+function sessionSecretFor(u){
+  try{const x=JSON.parse(sessionStorage.getItem(SESSION_SECRET)||'null');if(x&&normU(x.udise)===normU(u)&&x.secret)return String(x.secret)}catch(e){}
+  return'';
+}
+async function secretFor(u){
+  const s=sessionSecretFor(u); if(s)return s;
+  const r=schoolRec(u); const p=String(r?.password||'').trim();
+  if(!p)return'';
+  return deriveSchoolSecret(u,p);
+}
+async function fetchCloudRow(u,secret){
+  const cfg=tech(); const id='school_'+normU(u);
+  const q=cfg.url+'/rest/v1/cce_app_data?id=eq.'+encodeURIComponent(id)+'&select=id,school_name,udise,academic_year,payload,updated_at';
+  const r=await fetch(q,{method:'GET',headers:headers(cfg.key,{'x-school-sync-key':secret})});
+  if(!r.ok)throw new Error(await r.text());
+  const rows=await r.json(); return Array.isArray(rows)&&rows.length?rows[0]:null;
+}
+async function putCloudRow(u,secret,row,payload){
+  const cfg=tech(); const id='school_'+normU(u); const syncHash=await sha256Hex(secret);
+  const body={
+    id:id,
+    school_name:String(payload?.school?.name||payload?._cloudAccess?.name||row?.school_name||''),
+    udise:normU(u),
+    academic_year:String(payload?.school?.academicYear||row?.academic_year||''),
+    payload:payload,
+    sync_key_hash:syncHash,
+    updated_at:new Date().toISOString()
+  };
+  const r=await fetch(cfg.url+'/rest/v1/cce_app_data',{
+    method:'POST',headers:headers(cfg.key,{'x-school-sync-key':secret,Prefer:'resolution=merge-duplicates,return=representation'}),body:JSON.stringify(body)
+  });
+  if(!r.ok)throw new Error(await r.text());
+  return true;
+}
+async function syncHeadVerifier(u,pin){
+  u=normU(u); pin=String(pin||'').trim();
+  if(!u||!/^\d{4,}$/.test(pin))return false;
+  const secret=await secretFor(u); if(!secret)return false;
+  const row=await fetchCloudRow(u,secret);
+  let payload={};
+  try{payload=JSON.parse(JSON.stringify(row?.payload||window.db||{}))}catch(e){payload={}}
+  payload.school=payload.school||{}; payload.school.udise=u;
+  payload._cloudAccess=payload._cloudAccess||{};
+  payload._cloudAccess.headPinVerifier=await headVerifier(u,pin);
+  payload._cloudAccess.headPinSet=true;
+  payload._cloudAccess.headPinUpdatedAt=new Date().toISOString();
+  await putCloudRow(u,secret,row,payload);
+  saveSchoolFields(u,{headPinHash:payload._cloudAccess.headPinVerifier,headPinSet:true,headPinUpdatedAt:payload._cloudAccess.headPinUpdatedAt});
+  return true;
+}
+async function cloudVerifier(u){
+  u=normU(u); const local=schoolRec(u);
+  if(local&&String(local.headPinHash||'').trim())return String(local.headPinHash).trim();
+  const secret=await secretFor(u); if(!secret)return'';
+  const row=await fetchCloudRow(u,secret); const meta=row?.payload?._cloudAccess||{};
+  const h=String(meta.headPinVerifier||meta.headPinHash||'').trim();
+  if(h)saveSchoolFields(u,{headPinHash:h,headPinSet:true,headPinUpdatedAt:meta.headPinUpdatedAt||''});
+  return h;
+}
+function refreshRoleUI(){try{if(typeof window.v190ApplyRoleUI==='function')window.v190ApplyRoleUI()}catch(e){}}
+
+/* Cross-browser Head Teacher Access. */
+window.v190HeadAccess=async function(){
+  if(sessionStorage.getItem(HEAD_MODE)==='1' || sessionStorage.getItem(ADMIN_SESSION)==='1'){
+    sessionStorage.removeItem(HEAD_MODE); refreshRoleUI(); return;
+  }
+  if(sessionStorage.getItem(TEACHER_SESSION)){
+    alert('ಮೊದಲು Teacher PIN session Logout ಮಾಡಿ.'); return;
+  }
+  const u=currentUdise();
+  if(!u){alert('ಮೊದಲು School Login ಮಾಡಿ.');return}
+  const rec=schoolRec(u)||{};
+  const localPin=String(rec.headPin||'').trim();
+  let verifier='';
+  try{verifier=await cloudVerifier(u)}catch(e){console.warn('v198 cloud head verifier',e)}
+  if(!localPin && !verifier){
+    alert('ಈ ಶಾಲೆಗೆ Head Teacher PIN ಇನ್ನೂ cloudನಲ್ಲಿ ಲಭ್ಯವಿಲ್ಲ.\n\nPIN ಈಗಾಗಲೇ ಬೇರೆ browser/deviceನಲ್ಲಿ set ಆಗಿದ್ದರೆ, ಆ browserನಲ್ಲಿ v198 open ಮಾಡಿ School Login ಮಾಡಿದ ನಂತರ 10–20 ಸೆಕೆಂಡ್ ಕಾಯಿರಿ.\nಅಥವಾ Master Adminನಲ್ಲಿ school Head PIN ಅನ್ನು Set/Change ಮಾಡಿ.');
+    return;
+  }
+  const entered=(prompt('Master Admin ನೀಡಿದ Head Teacher PIN ನಮೂದಿಸಿ:','')||'').trim();
+  if(!entered)return;
+  let ok=false;
+  if(localPin && entered===localPin)ok=true;
+  if(!ok && verifier){
+    try{ok=(await headVerifier(u,entered))===verifier}catch(e){ok=false}
+  }
+  if(!ok){alert('ತಪ್ಪಾದ Head Teacher PIN.');return}
+  sessionStorage.setItem(HEAD_MODE,'1'); refreshRoleUI();
+  /* If this browser had the legacy raw PIN, quietly migrate only its verifier. */
+  if(localPin && !verifier){syncHeadVerifier(u,localPin).catch(function(e){console.warn('v198 head PIN migration',e)})}
+  alert('✅ Head Teacher Access ಸಕ್ರಿಯವಾಗಿದೆ.');
+};
+
+/* After Master Admin sets/changes a school PIN, sync only the verifier to cloud. */
+const oldSetHead=window.v178SetHeadTeacherPin;
+if(typeof oldSetHead==='function'){
+  window.v178SetHeadTeacherPin=function(udise){
+    const before=String(schoolRec(udise)?.headPin||'');
+    const r=oldSetHead.apply(this,arguments);
+    setTimeout(function(){
+      const after=String(schoolRec(udise)?.headPin||'').trim();
+      if(after && after!==before){
+        syncHeadVerifier(udise,after).then(function(ok){
+          if(ok)console.log('v198 Head PIN verifier synced for '+normU(udise));
+        }).catch(function(e){console.warn('v198 Head PIN verifier sync',e)});
+      }
+    },120);
+    return r;
+  };
+}
+
+/* Auto-migrate the current school's existing local Head PIN once after v198 loads. */
+async function autoMigrate(){
+  const u=currentUdise(); if(!u)return;
+  const r=schoolRec(u); const p=String(r?.headPin||'').trim();
+  if(!p)return;
+  try{
+    const h=await cloudVerifier(u);
+    if(!h)await syncHeadVerifier(u,p);
+  }catch(e){console.warn('v198 auto migrate Head PIN',e)}
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(autoMigrate,1800)});else setTimeout(autoMigrate,1400);
+window.addEventListener('load',function(){setTimeout(autoMigrate,2200)});
+})();
 </script>
