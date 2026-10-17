@@ -17856,3 +17856,173 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 window.addEventListener('load',function(){setTimeout(autoMigrate,2200)});
 })();
 </script>
+
+
+<!-- =========================================================
+ v199 OWNER / MASTER ID
+ - Existing Multi-School Admin is retained as the Owner/Master Control Panel.
+ - School UDISE/DISE is NOT changed and remains school-specific.
+ - Owner login now requires a separate Owner ID + existing Master PIN.
+ - Owner ID: HPRK-OWNER
+ - Master PIN recovery and all v198 cloud/student/head-PIN features remain intact.
+========================================================= -->
+<style id="v199OwnerMasterStyles">
+#v199OwnerInfo{
+  margin:0 0 14px;padding:11px 13px;border-radius:10px;
+  background:#f5f2ff;border-left:4px solid #6f42c1;color:#334155;
+  line-height:1.55;font-size:12px
+}
+#v199OwnerBadge{
+  display:inline-block;margin-bottom:6px;padding:5px 10px;border-radius:999px;
+  background:#6f42c1;color:#fff;font-weight:900;font-size:12px
+}
+#v199LoginOwnerId,#v199SetupOwnerId{font-weight:800;letter-spacing:.4px}
+</style>
+<script id="v199OwnerMasterIdScript">
+(function(){
+'use strict';
+
+window.TFCCE_VERSION='v199';
+
+const OWNER_ID='HPRK-OWNER';
+const ADMIN_PIN_KEY='TFCCE_V110_ADMIN_PIN';
+const ADMIN_SESSION_KEY='TFCCE_V110_ADMIN_SESSION';
+
+function $(id){return document.getElementById(id)}
+function normalizeOwner(v){
+  return String(v||'').trim().replace(/\s+/g,'-').toUpperCase();
+}
+
+function addOwnerFields(){
+  const setup=$('v110SetupPane');
+  if(setup && !$('v199SetupOwnerId')){
+    const wrap=document.createElement('div');
+    wrap.className='v110-field';
+    wrap.innerHTML=
+      '<label>Owner ID / ಮಾಲೀಕರ ಐಡಿ</label>'+
+      '<input id="v199SetupOwnerId" value="'+OWNER_ID+'" readonly>'+
+      '<small style="display:block;margin-top:5px;color:#607086">ಈ Owner ID ಶಾಲೆಯ UDISE ಅಲ್ಲ.</small>';
+    const firstField=setup.querySelector('.v110-field');
+    if(firstField) setup.insertBefore(wrap,firstField);
+    else setup.appendChild(wrap);
+  }
+
+  const login=$('v110LoginPane');
+  if(login && !$('v199LoginOwnerId')){
+    const wrap=document.createElement('div');
+    wrap.className='v110-field';
+    wrap.innerHTML=
+      '<label>Owner ID / ಮಾಲೀಕರ ಐಡಿ</label>'+
+      '<input id="v199LoginOwnerId" autocomplete="username" placeholder="Owner ID" value="'+OWNER_ID+'">';
+    const firstField=login.querySelector('.v110-field');
+    if(firstField) login.insertBefore(wrap,firstField);
+    else login.appendChild(wrap);
+  }
+}
+
+function updateGateText(){
+  const hasPin=!!localStorage.getItem(ADMIN_PIN_KEY);
+  const title=$('v110GateTitle');
+  if(title) title.textContent=hasPin?'👑 Owner / Master Login':'👑 First-Time Owner Setup';
+
+  const loginNote=$('v110LoginPane')?.querySelector('.v110-note');
+  if(loginNote){
+    loginNote.innerHTML=
+      '<b>Owner ಮಾತ್ರ:</b> Owner ID + Master PIN ಮೂಲಕ ಎಲ್ಲಾ ಶಾಲೆಗಳ accounts, passwords, expiry, Head PIN ಮತ್ತು technical settings ನಿಯಂತ್ರಿಸಬಹುದು.'+
+      '<br><small>School Loginಗೆ ಪ್ರತಿಯೊಂದು ಶಾಲೆಯ UDISE/DISE + School Password ಹಾಗೆಯೇ ಪ್ರತ್ಯೇಕವಾಗಿರುತ್ತದೆ.</small>';
+  }
+
+  const setupNote=$('v110SetupPane')?.querySelector('.v110-note');
+  if(setupNote){
+    setupNote.innerHTML=
+      '<b>ಮೊದಲ ಬಾರಿ ಮಾತ್ರ:</b> Owner ID ಶಾಲೆಯ UDISE ಅಲ್ಲ. Master PIN ಅನ್ನು ಶಾಲೆಗಳಿಗೆ ಕೊಡಬೇಡಿ; ಇದು Owner/Master ಬಳಕೆಗೆ ಮಾತ್ರ.';
+  }
+}
+
+function updateAdminPanel(){
+  const admin=$('v110Admin');
+  if(!admin) return;
+  const h2=admin.querySelector('.v110-head h2');
+  if(h2) h2.textContent='👑 Owner / Master Control Panel';
+  const sm=admin.querySelector('.v110-head small');
+  if(sm) sm.textContent='All Schools • Password • Expiry • Head PIN • Technical Control';
+
+  const body=admin.querySelector('.v110-body');
+  if(body && !$('v199OwnerInfo')){
+    const info=document.createElement('div');
+    info.id='v199OwnerInfo';
+    info.innerHTML=
+      '<span id="v199OwnerBadge">Owner ID: '+OWNER_ID+'</span><br>'+
+      '<b>ಮುಖ್ಯ ಸೂಚನೆ:</b> ಈ Owner ID ನಿಮ್ಮ Master Controlಗಾಗಿ ಮಾತ್ರ. '+
+      'ಯಾವುದೇ ಶಾಲೆಯ UDISE/DISE code ಅನ್ನು Owner ID ಆಗಿ ಬದಲಾಯಿಸಬೇಡಿ.';
+    body.insertBefore(info,body.firstChild);
+  }
+}
+
+function relabelButtons(){
+  const nav=$('v110AdminNav');
+  if(nav) nav.textContent='👑 Owner / Master Control';
+  document.querySelectorAll('button').forEach(function(b){
+    const t=(b.textContent||'').trim();
+    if(t==='🏫 Multi‑School Admin' || t==='Multi‑School Admin') b.textContent='👑 Owner / Master Control';
+    if(t==='Owner / Master Admin Access') b.textContent='👑 Owner / Master Control';
+  });
+}
+
+/* Final wrapper around the latest v198 Master login. */
+const previousAdminLogin=window.v110AdminLogin;
+if(typeof previousAdminLogin==='function'){
+  window.v110AdminLogin=function(){
+    addOwnerFields();
+    const entered=normalizeOwner($('v199LoginOwnerId')?.value||'');
+    const msg=$('v110GateMsg');
+    if(!entered){
+      if(msg) msg.innerHTML='<div class="v110-note v110-error">Owner ID ನಮೂದಿಸಿ.</div>';
+      return;
+    }
+    if(entered!==OWNER_ID){
+      if(msg) msg.innerHTML='<div class="v110-note v110-error">Owner ID ತಪ್ಪಾಗಿದೆ.</div>';
+      return;
+    }
+    const r=previousAdminLogin.apply(this,arguments);
+    setTimeout(updateAdminPanel,80);
+    return r;
+  };
+  try{v110AdminLogin=window.v110AdminLogin}catch(e){}
+}
+
+/* Gate opens as Owner/Master login while retaining current PIN/recovery logic. */
+const previousOpenGate=window.v110OpenAdminGate;
+if(typeof previousOpenGate==='function'){
+  window.v110OpenAdminGate=function(){
+    const r=previousOpenGate.apply(this,arguments);
+    setTimeout(function(){
+      addOwnerFields();
+      updateGateText();
+      if($('v199LoginOwnerId')) $('v199LoginOwnerId').value=OWNER_ID;
+      if($('v199SetupOwnerId')) $('v199SetupOwnerId').value=OWNER_ID;
+    },0);
+    return r;
+  };
+  try{v110OpenAdminGate=window.v110OpenAdminGate}catch(e){}
+}
+
+function init(){
+  addOwnerFields();
+  updateGateText();
+  updateAdminPanel();
+  relabelButtons();
+  if($('v199LoginOwnerId') && !$('v199LoginOwnerId').value) $('v199LoginOwnerId').value=OWNER_ID;
+}
+
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded',function(){setTimeout(init,700);setTimeout(init,1500)});
+}else{
+  setTimeout(init,500);
+}
+window.addEventListener('load',function(){setTimeout(init,900)});
+setInterval(function(){try{updateAdminPanel();relabelButtons()}catch(e){}},2500);
+
+})();
+</script>
+
