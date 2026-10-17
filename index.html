@@ -17286,3 +17286,212 @@ window.v195EnsureStudentExcelImport=ensureImportUI;
 
 })();
 </script>
+
+
+<!-- =========================================================
+ v196 UDISE PLUS SMART STUDENT IMPORT
+========================================================= -->
+<script id="v196UdisePlusSmartImport">
+(function(){
+'use strict';
+window.TFCCE_VERSION='v196';
+
+function clean(v){return String(v==null?'':v).trim()}
+function normKey(v){return clean(v).toLowerCase().replace(/[\s_.:\-\/()]+/g,'').replace(/№/g,'no')}
+function mapObj(headers,row){const o={};(headers||[]).forEach((h,i)=>{const k=clean(h);if(k)o[k]=row[i]});return o}
+function normObj(o){const m={};Object.keys(o||{}).forEach(k=>m[normKey(k)]=o[k]);return m}
+function pick(o,keys){const m=normObj(o);for(const k of keys){const v=m[normKey(k)];if(clean(v)!=='')return clean(v)}return ''}
+function setIf(o,k,v){v=clean(v);if(v!=='')o[k]=v}
+
+const HEADER_GROUPS={
+  class:['Class','Standard','Std','ತರಗತಿ'],
+  section:['Section','Sec','ವಿಭಾಗ'],
+  name:['Name','Student Name','StudentName','Student Name (English)','ವಿದ್ಯಾರ್ಥಿಯ ಹೆಸರು','ಹೆಸರು'],
+  dob:['Date of Birth','DOB','Birth Date','ಜನ್ಮ ದಿನಾಂಕ'],
+  gender:['Gender','ಲಿಂಗ'],
+  pen:['Student PEN','PEN','PEN ID','PEN No','PEN Number','PEN ID Number'],
+  stateCode:['Student State Code','State Student Code','Student State ID','SATS No','SATS No.','SATS ID','SATS Number','SATS'],
+  father:['Father Name','Father Name (English)','ತಂದೆಯ ಹೆಸರು'],
+  mother:['Mother Name','Mother Name (English)','ತಾಯಿಯ ಹೆಸರು'],
+  category:['Social Category','Category','ಸಾಮಾಜಿಕ ವರ್ಗ'],
+  minority:['Minority Group','Minority','ಅಲ್ಪಸಂಖ್ಯಾತ ವರ್ಗ'],
+  bpl:['BPL beneficiary','BPL Beneficiary','BPL','BPL Status'],
+  cwsn:['CWSN','CWSN / Special Needs','Special Needs'],
+  impairment:['Type of Impairments','Type of Impairment','Impairment Type','Disability Type'],
+  repeater:['Is Repeater','Repeater'],
+  duplicate:['Suspected Duplicate Entry','Duplicate Entry','Suspected Duplicate'],
+  udiseStatus:['Status','UDISE Status'],
+  aadhaar:['AADHAAR No.','AADHAAR No','Aadhaar No.','Aadhaar No','Student Aadhaar No.','Student Aadhaar'],
+  aadhaarName:['Name As per AADHAAR','Name as per Aadhaar','Aadhaar Name'],
+  aadhaarValidation:['AADHAAR Validation Status','Aadhaar Validation Status','Aadhaar Status'],
+  admission:['Admission No','Admission No.','Admission Number','Adm No','ದಾಖಲಾತಿ ಸಂಖ್ಯೆ','ಪ್ರವೇಶ ಸಂಖ್ಯೆ'],
+  apaar:['APAAR ID','APAAR No','APAAR Number','APAAR']
+};
+function isKey(v,arr){const n=normKey(v);return arr.some(x=>normKey(x)===n)}
+function headerScore(row){
+  row=row||[];let score=0;
+  Object.values(HEADER_GROUPS).forEach(keys=>{if(row.some(v=>isKey(v,keys)))score++});
+  if(row.some(v=>isKey(v,HEADER_GROUPS.name)))score+=4;
+  if(row.some(v=>isKey(v,HEADER_GROUPS.class)))score+=2;
+  return score;
+}
+function findHeaderIndex(matrix){
+  let best=-1,bestScore=0;const max=Math.min(matrix.length,20);
+  for(let i=0;i<max;i++){const s=headerScore(matrix[i]);if(s>bestScore){bestScore=s;best=i}}
+  return bestScore>=5?best:-1;
+}
+const ROMAN={I:'1',II:'2',III:'3',IV:'4',V:'5',VI:'6',VII:'7',VIII:'8',IX:'9',X:'10'};
+function parseClass(v,fallback){
+  let t=clean(v).toUpperCase().replace(/\b(CLASS|STANDARD|STD)\b/g,'').replace(/[.\s-]/g,'');
+  if(ROMAN[t])return ROMAN[t];
+  const m=t.match(/10|[1-9]/);return m?m[0]:String(fallback||'1');
+}
+function parseSection(v,fallback){
+  const t=clean(v).toUpperCase();const m=t.match(/(?:^|[^A-Z])([A-H])(?:[^A-Z]|$)/);return m?m[1]:String(fallback||'A').toUpperCase();
+}
+function normalizeDate(v){
+  const t=clean(v);if(!t)return '';
+  let m=t.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})$/);
+  if(m)return m[1]+'-'+String(m[2]).padStart(2,'0')+'-'+String(m[3]).padStart(2,'0');
+  m=t.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})$/);
+  if(m)return m[3]+'-'+String(m[2]).padStart(2,'0')+'-'+String(m[1]).padStart(2,'0');
+  return t;
+}
+function normalizeGender(v){
+  const x=clean(v).toLowerCase();
+  if(['m','male','boy','ಗಂಡು','ಪುರುಷ','ಬಾಲಕ'].includes(x))return 'ಗಂಡು';
+  if(['f','female','girl','ಹೆಣ್ಣು','ಸ್ತ್ರೀ','ಬಾಲಕಿ'].includes(x))return 'ಹೆಣ್ಣು';
+  if(x)return clean(v);return '';
+}
+function normalizeCategory(v){
+  const raw=clean(v),x=raw.toUpperCase();
+  if(/(^|[^A-Z])SC([^A-Z]|$)/.test(x))return 'SC';
+  if(/(^|[^A-Z])ST([^A-Z]|$)/.test(x))return 'ST';
+  if(x.includes('OBC'))return 'OBC';
+  if(x.includes('GENERAL')||x==='GM')return 'General';
+  return raw?'Other':'';
+}
+function yesNo(v){const x=clean(v).toLowerCase();return ['yes','y','1','true','ಹೌದು'].includes(x)?'Yes':''}
+function digitsOnly(v){return clean(v).replace(/\D/g,'')}
+function fullAadhaar(v){const d=digitsOnly(v);return d.length===12 && !/[xX*]/.test(clean(v))?d:''}
+function titleMeta(matrix,headerIndex){
+  const txt=(matrix.slice(0,Math.max(0,headerIndex)).flat().map(clean).filter(Boolean).join(' '));
+  const u=(txt.match(/\b\d{11}\b/)||[])[0]||'';
+  const y=(txt.match(/\b20\d{2}\s*[-–]\s*\d{2,4}\b/)||[])[0]||'';
+  return {udise:u,year:y.replace(/\s/g,'')};
+}
+function currentUdiseSafe(){
+  try{return clean((window.db&&db.school&&(db.school.udise||db.school.dise))||sessionStorage.getItem('TFCCE_V110_SCHOOL_SESSION')||'')}catch(e){return ''}
+}
+function getPayload(o,rowIndex){
+  const name=pick(o,HEADER_GROUPS.name);if(!name)return null;
+  const c=parseClass(pick(o,HEADER_GROUPS.class),window.studentClass?.value||'1');
+  const s=parseSection(pick(o,HEADER_GROUPS.section),window.studentSection?.value||'A');
+  const pen=pick(o,HEADER_GROUPS.pen);
+  const stateCode=pick(o,HEADER_GROUPS.stateCode);
+  const adm=pick(o,HEADER_GROUPS.admission);
+  const rawCat=pick(o,HEADER_GROUPS.category);
+  const aadhaarRaw=pick(o,HEADER_GROUPS.aadhaar);
+  const master={};
+  setIf(master,'nameEn',name);
+  setIf(master,'dob',normalizeDate(pick(o,HEADER_GROUPS.dob)));
+  setIf(master,'gender',normalizeGender(pick(o,HEADER_GROUPS.gender)));
+  setIf(master,'pen',pen);
+  setIf(master,'studentStateCode',stateCode);
+  setIf(master,'fatherName',pick(o,HEADER_GROUPS.father));
+  setIf(master,'motherName',pick(o,HEADER_GROUPS.mother));
+  setIf(master,'socialCategory',normalizeCategory(rawCat));
+  setIf(master,'socialCategoryRaw',rawCat);
+  setIf(master,'minorityGroup',pick(o,HEADER_GROUPS.minority));
+  setIf(master,'bplBeneficiary',pick(o,HEADER_GROUPS.bpl));
+  setIf(master,'cwsn',yesNo(pick(o,HEADER_GROUPS.cwsn)));
+  setIf(master,'impairmentType',pick(o,HEADER_GROUPS.impairment));
+  setIf(master,'isRepeater',pick(o,HEADER_GROUPS.repeater));
+  setIf(master,'suspectedDuplicateEntry',pick(o,HEADER_GROUPS.duplicate));
+  setIf(master,'udiseStatus',pick(o,HEADER_GROUPS.udiseStatus));
+  setIf(master,'aadhaarName',pick(o,HEADER_GROUPS.aadhaarName));
+  setIf(master,'aadhaarValidationStatus',pick(o,HEADER_GROUPS.aadhaarValidation));
+  setIf(master,'studentAadhaarMasked',aadhaarRaw);
+  setIf(master,'studentAadhaar',fullAadhaar(aadhaarRaw));
+  return {c,s,name,admission:adm,sats:stateCode,pen,apaar:pick(o,HEADER_GROUPS.apaar),master,rowIndex};
+}
+function findExisting(d,p){
+  const pen=clean(p.pen).toLowerCase(),sats=clean(p.sats).toLowerCase(),adm=clean(p.admission).toLowerCase();
+  const name=clean(p.name).toLowerCase(),dob=clean(p.master&&p.master.dob);
+  return (d.students||[]).find(st=>{
+    if(pen && clean(st.pen||st.master?.pen).toLowerCase()===pen)return true;
+    if(sats && clean(st.sats||st.master?.studentStateCode).toLowerCase()===sats)return true;
+    if(adm && clean(st.admission).toLowerCase()===adm)return true;
+    const sn=clean(st.master?.nameEn||st.name).toLowerCase();
+    const sd=clean(st.master?.dob);
+    return !!name && sn===name && (!dob || !sd || dob===sd);
+  });
+}
+function merge(st,p){
+  st.master=st.master||{};st.name=p.name||st.name||'';
+  if(p.admission)st.admission=p.admission;
+  if(p.sats)st.sats=p.sats;
+  if(p.pen)st.pen=p.pen;
+  if(p.apaar)st.apaar=p.apaar;
+  Object.keys(p.master||{}).forEach(k=>{if(clean(p.master[k])!=='')st.master[k]=p.master[k]});
+  st.status=st.status||'Active';st.tc=st.tc||{};
+}
+function isHeadAllowed(){
+  try{return sessionStorage.getItem('cce_v107_head_mode')==='1'||sessionStorage.getItem('TFCCE_V110_ADMIN_SESSION')==='1'}catch(e){return false}
+}
+
+window.importExcel=function(event){
+  const input=event&&event.target,file=input&&input.files&&input.files[0];if(!file)return;
+  if(!isHeadAllowed()){alert('Excel Import ಆಯ್ಕೆ Head Teacherಗೆ ಮಾತ್ರ ಲಭ್ಯ. ಮೊದಲು Head Teacher Access ಮಾಡಿ.');input.value='';return}
+  if(typeof XLSX==='undefined'){alert('Excel library load ಆಗಿಲ್ಲ. Internet connection ಪರಿಶೀಲಿಸಿ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.');input.value='';return}
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array'}),ws=wb.Sheets[wb.SheetNames[0]];
+      const matrix=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:false,blankrows:false});
+      if(!matrix.length){alert('Excel fileನಲ್ಲಿ ಮಾಹಿತಿ ಸಿಗಲಿಲ್ಲ.');return}
+      const h=findHeaderIndex(matrix);
+      if(h<0){alert('Excel header row ಗುರುತಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. Class / Section / Name ಇರುವ UDISE Plus sheet ಆಯ್ಕೆಮಾಡಿ.');return}
+      const meta=titleMeta(matrix,h),current=currentUdiseSafe();
+      if(meta.udise && current && meta.udise!==current){
+        alert('⚠️ UDISE mismatch.\nExcel UDISE: '+meta.udise+'\nLogged-in School UDISE: '+current+'\n\nತಪ್ಪು ಶಾಲೆಯ data import ಆಗದಂತೆ Import ನಿಲ್ಲಿಸಲಾಗಿದೆ.');return
+      }
+      const headers=matrix[h],rows=matrix.slice(h+1).filter(r=>Array.isArray(r)&&r.some(v=>clean(v)!==''));
+      let added=0,updated=0,skipped=0;
+      rows.forEach((row,i)=>{
+        const p=getPayload(mapObj(headers,row),h+i+2);if(!p){skipped++;return}
+        const d=getClassSection(p.c,p.s);d.students=d.students||[];
+        const ex=findExisting(d,p);
+        if(ex){merge(ex,p);updated++;return}
+        const st={id:'xls196_'+Date.now()+'_'+i+'_'+Math.random().toString(36).slice(2),name:p.name,admission:p.admission||'',sats:p.sats||'',pen:p.pen||'',apaar:p.apaar||'',schoolDays:'',attendedDays:'',status:'Active',tc:{},master:{}};
+        merge(st,p);d.students.push(st);added++;
+      });
+      if(!added&&!updated){alert('Import ಮಾಡಲು ಮಾನ್ಯ ವಿದ್ಯಾರ್ಥಿ ದಾಖಲೆಗಳು ಸಿಗಲಿಲ್ಲ.');return}
+      if(typeof saveData==='function')saveData();
+      try{if(typeof renderStudents==='function')renderStudents()}catch(_e){}
+      try{if(typeof updateDashboard==='function')updateDashboard();else if(typeof v99RenderDashboard==='function')v99RenderDashboard()}catch(_e){}
+      alert('✅ UDISE Plus Smart Import ಪೂರ್ಣಗೊಂಡಿದೆ.\nHeader Row: '+(h+1)+(meta.udise?'\nUDISE: '+meta.udise:'')+(meta.year?'\nYear: '+meta.year:'')+'\n\nAdded: '+added+'\nUpdated: '+updated+'\nSkipped: '+skipped+'\n\nMapped: Class, Section, Name, DOB, Gender, PEN, Student State Code→SATS, Father/Mother, Category, CWSN ಮತ್ತು Aadhaar metadata.');
+    }catch(err){console.error('v196 UDISE import',err);alert('Excel Import Error: '+(err&&err.message?err.message:String(err)))}
+    finally{if(input)input.value=''}
+  };
+  reader.onerror=function(){alert('Excel file ಓದಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ.');if(input)input.value=''};
+  reader.readAsArrayBuffer(file);
+};
+try{importExcel=window.importExcel}catch(e){}
+
+function applyUI(){
+  const inp=document.getElementById('excelFile');if(inp){inp.accept='.xlsx,.xls,.csv';inp.onchange=window.importExcel}
+  const b=document.getElementById('v195StudentImportBtn')||document.querySelector('#students button[onclick*="excelFile"]');
+  if(b){b.textContent='📥 UDISE Plus Excel Import';b.title='UDISE Plus Smart Import: title rows + header auto-detect + Roman Class I-X + field mapping'}
+  const note=document.getElementById('v195StudentImportNote');
+  if(note)note.innerHTML='<b>UDISE Plus Smart Import:</b> Excelನಲ್ಲಿ title row ಇದ್ದರೂ header ಅನ್ನು ಸ್ವಯಂ ಗುರುತಿಸುತ್ತದೆ. Class I–X, Section, Name, DOB, Gender, Student PEN, Student State Code (SATS), Father/Mother, Social Category, CWSN ಮತ್ತು Aadhaar metadataಗಳನ್ನು map ಮಾಡುತ್ತದೆ. <b>Head Teacher Access</b> ನಲ್ಲಿ ಮಾತ್ರ Import ಲಭ್ಯ.';
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(applyUI,1100));else setTimeout(applyUI,600);
+window.addEventListener('load',()=>setTimeout(applyUI,1300));
+const oldShow=window.showPage;if(typeof oldShow==='function'){
+  window.showPage=function(){const r=oldShow.apply(this,arguments);if(arguments[0]==='students')setTimeout(applyUI,180);return r};try{showPage=window.showPage}catch(e){}
+}
+window.v196ApplyStudentImportUI=applyUI;
+})();
+
+</script>
