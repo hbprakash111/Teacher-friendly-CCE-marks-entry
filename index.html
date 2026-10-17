@@ -17048,3 +17048,241 @@ window.v194AutoCloudSync=function(){return autoSync('manual-auto')};
 
 })();
 </script>
+
+<!-- =========================================================
+ v195 STUDENT EXCEL IMPORT RESTORED
+ - Restores a clearly visible Student Database "Import Excel" action.
+ - Head Teacher / Master Admin only (same safety rule as student edits).
+ - Supports:
+   1) One-column files containing only student names.
+   2) Two-column files such as Sl.No + Student Name.
+   3) Header-based files with Class / Section and master-detail columns.
+ - Saves once after import so v194 Smart Auto Cloud Sync can queue/sync it.
+========================================================= -->
+<style id="v195StudentExcelImportStyle">
+#v195StudentImportNote{margin:8px 0 2px;padding:8px 10px;border-left:4px solid #16a34a;background:#f0fdf4;border-radius:6px;font-size:13px}
+#v195StudentImportBtn{font-weight:700}
+#studentV84 .v84-actions button[onclick*="excelFile"]{display:none!important}
+</style>
+<script id="v195StudentExcelImportRestored">
+(function(){
+'use strict';
+window.TFCCE_VERSION='v195';
+
+const HEAD_MODE='cce_v107_head_mode';
+const ADMIN_SESSION='TFCCE_V110_ADMIN_SESSION';
+
+function isHeadAllowed(){
+  try{return sessionStorage.getItem(HEAD_MODE)==='1' || sessionStorage.getItem(ADMIN_SESSION)==='1'}catch(e){return false}
+}
+function clean(v){return String(v==null?'':v).trim()}
+function normKey(v){
+  return clean(v).toLowerCase().replace(/[\s_.:\-\/()]+/g,'').replace(/№/g,'no');
+}
+function hasAny(v,list){
+  const n=normKey(v);return list.some(function(x){return n===normKey(x)})
+}
+const NAME_KEYS=['Student Name','StudentName','Name','Student Name (English)','ವಿದ್ಯಾರ್ಥಿಯ ಹೆಸರು','ವಿದ್ಯಾರ್ಥಿ ಹೆಸರು','ಹೆಸರು'];
+const NAME_KN_KEYS=['Student Name (Kannada)','Student Name Kannada','Name Kannada','ವಿದ್ಯಾರ್ಥಿಯ ಹೆಸರು (ಕನ್ನಡ)','ವಿದ್ಯಾರ್ಥಿಯ ಹೆಸರು ಕನ್ನಡ'];
+const CLASS_KEYS=['Class','Standard','Std','ತರಗತಿ'];
+const SECTION_KEYS=['Section','Sec','ವಿಭಾಗ'];
+const ADM_KEYS=['Admission No','Admission No.','Admission Number','Adm No','Adm. No.','ದಾಖಲಾತಿ ಸಂಖ್ಯೆ','ಪ್ರವೇಶ ಸಂಖ್ಯೆ'];
+const SATS_KEYS=['SATS No','SATS No.','SATS ID','SATS ID Number','SATS Number','SATS'];
+const SERIAL_KEYS=['Sl No','Sl.No','Sl.No.','Serial No','Serial Number','No','ಕ್ರಮ ಸಂಖ್ಯೆ','ಕ್ರ.ಸಂ'];
+
+function headerLooksValid(row){
+  return (row||[]).some(function(v){
+    return hasAny(v,NAME_KEYS.concat(NAME_KN_KEYS,CLASS_KEYS,SECTION_KEYS,ADM_KEYS,SATS_KEYS,SERIAL_KEYS));
+  });
+}
+function objectFromRow(headers,row){
+  const o={};headers.forEach(function(h,i){const k=clean(h);if(k)o[k]=row[i]});return o;
+}
+function normalizedObject(o){
+  const m={};Object.keys(o||{}).forEach(function(k){m[normKey(k)]=o[k]});return m;
+}
+function pick(o,keys){
+  const m=normalizedObject(o);
+  for(const k of keys){const v=m[normKey(k)];if(clean(v)!=='')return clean(v)}
+  return '';
+}
+function parseClass(v,fallback){
+  const t=clean(v);const m=t.match(/(?:^|\D)(10|[1-9])(?:\D|$)/);return m?m[1]:String(fallback||'1');
+}
+function parseSection(v,fallback){
+  const t=clean(v).toUpperCase();
+  const m=t.match(/(?:^|[^A-Z])([A-H])(?:[^A-Z]|$)/);
+  return m?m[1]:String(fallback||'A').toUpperCase();
+}
+function serialLike(v){return /^\s*\d+[.)-]?\s*$/.test(clean(v))}
+function setIf(obj,key,val){if(clean(val)!=='')obj[key]=clean(val)}
+function studentPayloadFromObject(o,rowIndex){
+  const nameEn=pick(o,NAME_KEYS);
+  const nameKn=pick(o,NAME_KN_KEYS);
+  const name=nameEn||nameKn;
+  if(!name)return null;
+  const c=parseClass(pick(o,CLASS_KEYS),window.studentClass?.value||'1');
+  const s=parseSection(pick(o,SECTION_KEYS),window.studentSection?.value||'A');
+  const master={};
+  setIf(master,'nameEn',nameEn||name);
+  setIf(master,'nameKn',nameKn);
+  setIf(master,'gender',pick(o,['Gender','ಲಿಂಗ']));
+  setIf(master,'dob',pick(o,['Date of Birth','DOB','Birth Date','ಜನ್ಮ ದಿನಾಂಕ']));
+  setIf(master,'religion',pick(o,['Religion','ಧರ್ಮ']));
+  setIf(master,'socialCategory',pick(o,['Social Category','Category','ವರ್ಗ','ಸಾಮಾಜಿಕ ವರ್ಗ']));
+  setIf(master,'caste',pick(o,['Caste','ಜಾತಿ']));
+  setIf(master,'studentAadhaar',pick(o,['Student Aadhaar No','Student Aadhaar No.','Student Aadhaar','Aadhaar']));
+  setIf(master,'fatherAadhaar',pick(o,['Father Aadhaar No','Father Aadhaar No.']));
+  setIf(master,'motherAadhaar',pick(o,['Mother Aadhaar No','Mother Aadhaar No.']));
+  setIf(master,'fatherName',pick(o,['Father Name','Father Name (English)','ತಂದೆಯ ಹೆಸರು']));
+  setIf(master,'fatherNameKn',pick(o,['Father Name (Kannada)','Father Name Kannada','ತಂದೆಯ ಹೆಸರು (ಕನ್ನಡ)']));
+  setIf(master,'motherName',pick(o,['Mother Name','Mother Name (English)','ತಾಯಿಯ ಹೆಸರು']));
+  setIf(master,'motherNameKn',pick(o,['Mother Name (Kannada)','Mother Name Kannada','ತಾಯಿಯ ಹೆಸರು (ಕನ್ನಡ)']));
+  setIf(master,'cwsn',pick(o,['CWSN','CWSN / Special Needs','Special Needs']));
+  setIf(master,'mobile',pick(o,['Mobile No','Mobile No.','Mobile','ಮೊಬೈಲ್ ಸಂಖ್ಯೆ','ಮೊಬೈಲ್']));
+  setIf(master,'birthPlace',pick(o,['Birth Place','ಜನ್ಮ ಸ್ಥಳ','ಹುಟ್ಟಿದ ಸ್ಥಳ']));
+  setIf(master,'taluk',pick(o,['Taluk','ತಾಲೂಕು']));
+  setIf(master,'district',pick(o,['District','ಜಿಲ್ಲೆ']));
+  setIf(master,'state',pick(o,['State','ರಾಜ್ಯ']));
+  setIf(master,'nationality',pick(o,['Nationality','ರಾಷ್ಟ್ರೀಯತೆ']));
+  setIf(master,'subCaste',pick(o,['Sub Caste','Sub-caste','ಉಪಜಾತಿ']));
+  setIf(master,'admissionDate',pick(o,['Admission Date','Date of Admission','ದಾಖಲಾದ ದಿನಾಂಕ']));
+  setIf(master,'admissionClass',pick(o,['Admission Class','Class Admitted','ದಾಖಲಾದ ತರಗತಿ']));
+  setIf(master,'previousSchool',pick(o,['Previous School','ಹಿಂದೆ ಓದಿದ ಶಾಲೆ']));
+  setIf(master,'language1',pick(o,['First Language','Language 1','ಪ್ರಥಮ ಭಾಷೆ']));
+  setIf(master,'language2',pick(o,['Second Language','Language 2','ದ್ವಿತೀಯ ಭಾಷೆ']));
+  setIf(master,'language3',pick(o,['Third Language','Language 3','ತೃತೀಯ ಭಾಷೆ']));
+  setIf(master,'medium',pick(o,['Medium','Medium of Instruction','ಬೋಧನಾ ಮಾಧ್ಯಮ']));
+  setIf(master,'lastClassStudied',pick(o,['Last Class Studied','ಕೊನೆಯದಾಗಿ ಓದಿದ ತರಗತಿ']));
+  setIf(master,'schoolDays',pick(o,['School Days','School Working Days','Working Days','ಶಾಲೆಯ ಒಟ್ಟು ಕೆಲಸದ ದಿನಗಳು']));
+  setIf(master,'attendedDays',pick(o,['Attended Days','Days Attended','Attendance Days','ಹಾಜರಾದ ದಿನಗಳು']));
+  setIf(master,'character',pick(o,['Character','Conduct','ಶೀಲ ಮತ್ತು ಚಾರಿತ್ರ್ಯ']));
+  setIf(master,'remarks',pick(o,['Remarks','Remark','ಟಿಪ್ಪಣಿ','ಇತರೆ ಟಿಪ್ಪಣಿಗಳು']));
+  return {
+    c:c,s:s,name:name,nameEn:nameEn||name,nameKn:nameKn,
+    admission:pick(o,ADM_KEYS),sats:pick(o,SATS_KEYS),
+    pen:pick(o,['PEN ID','PEN No','PEN Number','PEN']),
+    apaar:pick(o,['APAAR ID','APAAR No','APAAR Number','APAAR']),
+    schoolDays:master.schoolDays||'',attendedDays:master.attendedDays||'',master:master,rowIndex:rowIndex
+  };
+}
+function studentPayloadFromSimpleRow(row,rowIndex){
+  const vals=(row||[]).map(clean);
+  if(!vals.some(Boolean))return null;
+  let name='';
+  if(vals.length===1){name=vals[0]}
+  else if(serialLike(vals[0]) && vals[1]){name=vals[1]}
+  else if(vals[1]){name=vals[1]}
+  else{name=vals[0]}
+  if(!name || hasAny(name,NAME_KEYS.concat(NAME_KN_KEYS)))return null;
+  return {c:String(window.studentClass?.value||'1'),s:String(window.studentSection?.value||'A'),name:name,nameEn:name,nameKn:'',admission:'',sats:'',pen:'',apaar:'',schoolDays:'',attendedDays:'',master:{nameEn:name},rowIndex:rowIndex};
+}
+function mergeStudent(st,p){
+  st.master=st.master||{};
+  st.name=p.name||st.name||'';
+  if(p.admission)st.admission=p.admission;
+  if(p.sats)st.sats=p.sats;
+  if(p.pen)st.pen=p.pen;
+  if(p.apaar)st.apaar=p.apaar;
+  if(p.schoolDays)st.schoolDays=p.schoolDays;
+  if(p.attendedDays)st.attendedDays=p.attendedDays;
+  Object.keys(p.master||{}).forEach(function(k){if(clean(p.master[k])!=='')st.master[k]=p.master[k]});
+  if(!st.master.nameEn)st.master.nameEn=p.nameEn||st.name||'';
+  if(p.nameKn)st.master.nameKn=p.nameKn;
+  st.status=st.status||'Active';st.tc=st.tc||{};
+}
+function findExisting(d,p){
+  const sats=clean(p.sats).toLowerCase(),adm=clean(p.admission).toLowerCase(),name=clean(p.name).toLowerCase();
+  return (d.students||[]).find(function(st){
+    if(sats && clean(st.sats||st.master?.sats).toLowerCase()===sats)return true;
+    if(adm && clean(st.admission).toLowerCase()===adm)return true;
+    const n=clean(st.master?.nameEn||st.name||st.master?.nameKn).toLowerCase();
+    return !!name && n===name;
+  });
+}
+
+window.importExcel=function(event){
+  const input=event&&event.target;
+  const file=input&&input.files&&input.files[0];
+  if(!file)return;
+  if(!isHeadAllowed()){
+    alert('Excel Import ಆಯ್ಕೆ Head Teacherಗೆ ಮಾತ್ರ ಲಭ್ಯ. ಮೊದಲು Head Teacher Access ಮಾಡಿ.');
+    input.value='';return;
+  }
+  if(typeof XLSX==='undefined'){
+    alert('Excel library load ಆಗಿಲ್ಲ. Internet connection ಪರಿಶೀಲಿಸಿ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.');
+    input.value='';return;
+  }
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const matrix=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:false,blankrows:false});
+      const rows=matrix.filter(function(r){return Array.isArray(r)&&r.some(function(v){return clean(v)!==''})});
+      if(!rows.length){alert('Excel fileನಲ್ಲಿ ವಿದ್ಯಾರ್ಥಿ ಮಾಹಿತಿ ಸಿಗಲಿಲ್ಲ.');return}
+      const headerMode=headerLooksValid(rows[0]);
+      const headers=headerMode?rows[0]:[];
+      const dataRows=headerMode?rows.slice(1):rows;
+      let added=0,updated=0,skipped=0;
+      dataRows.forEach(function(row,i){
+        const p=headerMode?studentPayloadFromObject(objectFromRow(headers,row),i+2):studentPayloadFromSimpleRow(row,i+1);
+        if(!p || !clean(p.name)){skipped++;return}
+        const d=getClassSection(p.c,p.s);
+        d.students=d.students||[];
+        const existing=findExisting(d,p);
+        if(existing){mergeStudent(existing,p);updated++;return}
+        const st={id:'xls_'+Date.now()+'_'+i+'_'+Math.random().toString(36).slice(2),name:p.name,admission:p.admission||String(d.students.length+1),sats:p.sats||'',pen:p.pen||'',apaar:p.apaar||'',schoolDays:p.schoolDays||'',attendedDays:p.attendedDays||'',status:'Active',tc:{},master:{}};
+        mergeStudent(st,p);d.students.push(st);added++;
+      });
+      if(added===0&&updated===0){alert('Import ಮಾಡಲು ಮಾನ್ಯ ವಿದ್ಯಾರ್ಥಿ ದಾಖಲೆಗಳು ಸಿಗಲಿಲ್ಲ.');return}
+      if(typeof saveData==='function')saveData();
+      try{if(typeof renderStudents==='function')renderStudents()}catch(_e){}
+      try{if(typeof updateDashboard==='function')updateDashboard();else if(typeof v99RenderDashboard==='function')v99RenderDashboard()}catch(_e){}
+      alert('✅ Excel Import ಪೂರ್ಣಗೊಂಡಿದೆ.\nAdded: '+added+'\nUpdated: '+updated+'\nSkipped: '+skipped+'\n\n1-column Name ಅಥವಾ 2-column Sl.No + Name format ಕೂಡ ಬೆಂಬಲಿಸಲಾಗಿದೆ.');
+    }catch(err){
+      console.error('v195 student excel import',err);
+      alert('Excel Import Error: '+(err&&err.message?err.message:String(err)));
+    }finally{
+      if(input)input.value='';
+    }
+  };
+  reader.onerror=function(){alert('Excel file ಓದಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ.');if(input)input.value=''};
+  reader.readAsArrayBuffer(file);
+};
+try{importExcel=window.importExcel}catch(e){}
+
+function ensureImportUI(){
+  const fileInput=document.getElementById('excelFile');
+  if(fileInput){fileInput.accept='.xlsx,.xls,.csv';fileInput.onchange=window.importExcel}
+  const card=document.querySelector('#students .card');
+  const mainToolbar=card ? Array.from(card.children).find(function(el){return el.classList&&el.classList.contains('toolbar')}) : null;
+  let btn=mainToolbar&&mainToolbar.querySelector('button[onclick*="excelFile"]');
+  if(mainToolbar){
+    if(!btn){
+      btn=document.createElement('button');btn.className='btn success';btn.type='button';btn.setAttribute('onclick',"document.getElementById('excelFile').click()");
+      const addBtn=mainToolbar.querySelector('button');
+      if(addBtn&&addBtn.nextSibling)mainToolbar.insertBefore(btn,addBtn.nextSibling);else mainToolbar.appendChild(btn);
+    }
+    btn.id='v195StudentImportBtn';btn.className='btn success';btn.textContent='📥 Import Excel';btn.title='1-column Name / 2-column Sl.No + Name / Header-based Excel import';
+    if(!document.getElementById('v195StudentImportNote')){
+      const note=document.createElement('div');note.id='v195StudentImportNote';note.className='notice';
+      note.innerHTML='<b>Excel Import:</b> 1-column Student Name ಅಥವಾ 2-column Sl.No + Student Name file ನೇರವಾಗಿ import ಮಾಡಬಹುದು. Class / Section columns ಇದ್ದರೆ ಅವನ್ನೂ ಬಳಸುತ್ತದೆ. <b>Head Teacher Access</b> ನಲ್ಲಿ ಮಾತ್ರ Import ಲಭ್ಯ.';
+      mainToolbar.insertAdjacentElement('afterend',note);
+    }
+  }
+  try{if(typeof window.v190ApplyRoleUI==='function')window.v190ApplyRoleUI()}catch(e){}
+}
+
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(ensureImportUI,900)});
+else setTimeout(ensureImportUI,500);
+window.addEventListener('load',function(){setTimeout(ensureImportUI,1000)});
+const oldShow=window.showPage;
+if(typeof oldShow==='function'){
+  window.showPage=function(){const r=oldShow.apply(this,arguments);if(arguments[0]==='students')setTimeout(ensureImportUI,120);return r};
+  try{showPage=window.showPage}catch(e){}
+}
+window.v195EnsureStudentExcelImport=ensureImportUI;
+
+})();
+</script>
